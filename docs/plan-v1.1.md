@@ -125,7 +125,10 @@ exchanges for Sanctum tokens.
 5. User confirms → main app frontend:
    - Calls POST /api/gpt-auth/confirm {session_id, session_sig}
    - Backend generates one-time auth_code (UUID, stored in Redis TTL 5 min: code → user_id)
-   - Backend creates a Sanctum token: scope ["pet:read", "pet:write", "health:read", "health:write"]
+   - Backend creates a Sanctum token with abilities:
+         ["pet:read", "pet:write", "health:read", "health:write", "profile:read"]
+     (`profile:read` is not used by connector endpoints in MVP but reserved for future user
+     profile features; granting it now avoids forcing all users to reconnect later)
    - Stores: auth_code → {user_id, sanctum_token}
    - Returns: {redirect_url: "https://gpt.troioi.vn/oauth/callback?session_id=...&code=..."}
    - Frontend redirects browser to that URL
@@ -168,6 +171,10 @@ When a visitor arrives at `/gpt-connect` without an account:
   require an invitation code (protected by the HMAC session signature instead).
 - After registration, the user sees the consent screen immediately.
 - A `registered_via_gpt: true` flag should be stored on the user record for analytics.
+- The session_id is marked as `registration_attempted:{session_id}` in Redis (TTL 10 min)
+  immediately after a registration call, preventing the same HMAC-signed session from being
+  reused to create multiple accounts. This mirrors the `gpt_confirm_used:{session_id}` pattern
+  used by the confirm endpoint.
 
 ### 4.3 Existing User Account Linking
 
@@ -191,8 +198,34 @@ If a user already has a Meo Mai Moi account:
 - `CONNECTOR_API_KEY` used for server-to-server calls (main app → connector is never needed;
   connector → main app for the exchange step).
 - `HMAC_SHARED_SECRET` used to sign session redirects (prevents CSRF on the consent page).
+  **HMAC validation is authoritative in the server-side Laravel controller only.** Any
+  display of the consent page before the controller validates the signature is UX only.
+  No security decision is made client-side.
 - Rate limiting on all OAuth endpoints.
 - No tokens, no PII in logs — only `user_id`, `request_id`, `endpoint`, `status`, `latency`.
+
+### 4.6 Auth Failure Modes
+
+What happens at each point in the OAuth flow when something goes wrong:
+
+| Step | Failure | Connector behavior | User sees |
+|---|---|---|---|
+| `GET /oauth/authorize` | Invalid `client_id` | 400 HTML error page | "Invalid request" |
+| `GET /oauth/authorize` | Redis unavailable | 503, abort | "Service temporarily unavailable" |
+| `GET /oauth/callback` | `session_id` not in Redis (expired or never set) | redirect to `redirect_uri?error=access_denied&state={state}` | ChatGPT: "Authorization failed" |
+| `GET /oauth/callback` | Exchange call to main app fails (network) | redirect with `error=server_error` | ChatGPT: "Authorization failed" |
+| `GET /oauth/callback` | Exchange call returns 401 (bad `CONNECTOR_API_KEY`) | redirect with `error=server_error` | operator must fix misconfiguration |
+| `GET /oauth/callback` | Exchange call returns 400 (code expired/used) | redirect with `error=access_denied` | ChatGPT: "Authorization failed" |
+| `POST /oauth/token` | Code not in Redis (expired, TTL 5 min) | 400 `{"error": "invalid_grant"}` | ChatGPT retries or re-initiates flow |
+| `POST /oauth/token` | Wrong `client_secret` | 401 `{"error": "invalid_client"}` | operator must fix configuration |
+
+**Redis unavailability during auth:** the connector fails fast and returns an appropriate
+error redirect or HTTP error. There is no retry logic — the user is asked to try again.
+In-flight OAuth sessions stored in Redis are lost on Redis restart; affected users must
+restart the OAuth flow (acceptable given the 10-minute TTL).
+
+**All failure redirects to `redirect_uri`** include `?error=...&state={state}` so ChatGPT
+can display a message rather than hanging indefinitely.
 
 ---
 
@@ -224,6 +257,11 @@ PATCH  /pets/{id}         — Update pet
 GET    /pet-types         — List available pet types (cached, for species resolution)
 ```
 
+**HTTP method translation**: The connector exposes `PATCH` for update endpoints (semantically
+correct for partial updates from ChatGPT). Internally, it forwards `PUT` requests to the main
+app, which uses `Route::put()`. Implementation must confirm the main app's update controllers
+accept partial payloads (typical Laravel `$model->fill(request()->only([...]))->save()` does).
+
 **POST /pets/find** (semantic search tool):
 ```json
 { "name": "Clauddy", "species": "cat" }
@@ -247,9 +285,11 @@ can return 0, 1, or multiple candidates — enabling the GPT to confirm with the
 Exactly one of `birth_date`, `birth_month_year`, or `age_months` should be provided (all optional).
 Connector translates:
 - `species` → looks up `pet_type_id` via cached `GET /pet-types`
-- `birth_date` → full precision date
+- `sex: "unknown"` → maps to `"not_specified"` in the main app request (main app `PetSex` enum
+  uses `not_specified`, not `unknown`; connector accepts the more natural `"unknown"` from GPT)
+- `birth_date` → decomposes to `birthday_year`, `birthday_month`, `birthday_day`, `birthday_precision: "day"`
 - `birth_month_year` → `birthday_year`, `birthday_month`, `birthday_precision: "month"`
-- `age_months` → computes `birthday_year`, `birthday_month` from current date, precision "month"
+- `age_months` → computes `birthday_year`, `birthday_month` from current date, `birthday_precision: "month"`
 
 `POST /pets` also performs an internal duplicate check (calls `find` logic) before creating.
 If a pet with the same name already exists, it returns a warning with the existing pet's details,
@@ -294,7 +334,8 @@ PATCH  /pets/{id}/medical-records/{rid}    — Update medical record
 }
 ```
 
-Standard `record_type` values with examples for the GPT in the OpenAPI description:
+Canonical `record_type` values (the authoritative list — used in OpenAPI enum, GPT system prompt,
+and connector validation):
 `checkup`, `deworming`, `flea_treatment`, `surgery`, `dental`, `other`.
 
 The connector defaults `record_type` to `"other"` if the value provided by the GPT doesn't match
@@ -316,6 +357,9 @@ POST   /pets/{id}/weights                  — Add a single weight record
 }
 ```
 
+Field mapping: `measured_at` (connector API, human-friendly) maps to `record_date` in the main
+app request (`WeightHistory` model uses `record_date`).
+
 Bulk weight entry (from photo): GPT calls `GET /pets` to resolve names to IDs, then calls
 `POST /pets/{id}/weights` once per pet. No special bulk endpoint needed — GPT orchestrates it.
 
@@ -335,9 +379,16 @@ All non-2xx responses use this shape:
 Standard error codes:
 - `VALIDATION_ERROR` — bad input, GPT should ask user to correct
 - `NOT_FOUND` — pet/record doesn't exist
-- `UNAUTHORIZED` — token invalid or expired
+- `UNAUTHORIZED` — token invalid or expired; GPT should prompt user to reconnect
 - `AMBIGUOUS` — multiple matches, GPT should disambiguate
-- `UPSTREAM_ERROR` — main app returned unexpected error
+- `UPSTREAM_ERROR` — main app returned unexpected error; GPT should suggest retrying
+- `DUPLICATE_WARNING` — a record with the same name already exists; returned (HTTP 409) instead
+  of creating; includes existing record details; GPT must confirm with user before retrying with
+  `confirm_duplicate: true`
+
+**Upstream 429 handling**: if the main app returns HTTP 429 (rate limit), the connector translates
+it to `UPSTREAM_ERROR` with message "The server is busy, please try again in a moment." The GPT's
+existing `UPSTREAM_ERROR` handling (suggest retry) is appropriate for this case.
 
 ---
 
@@ -408,6 +459,12 @@ FastAPI auto-generates the OpenAPI schema from Pydantic models. Key rules:
 
 See `../meo-mai-moi/tmp/gpt-connector-plan.md` for the full change list.
 
+**Main app response envelope**: the main app wraps all API responses in
+`{"success": true, "data": {...}, "message": "..."}` (via `ApiResponseTrait`). The connector
+unwraps the `data` field before building its own response to ChatGPT. Error responses from the
+main app (non-2xx) are translated to the connector's error shape — the main app's `message`
+field may be included in the connector's `message` field for debugging context.
+
 Summary of changes needed in `meo-mai-moi`:
 
 1. **New web page**: `GET /gpt-connect` — OAuth consent + login + optional registration.
@@ -467,8 +524,22 @@ Structured JSON log fields on every request:
 
 ### Readiness/liveness
 
-- `GET /health` returns `{status: "ok", main_app_reachable: true/false}`.
-- Main app reachability check: lightweight `GET /api/version` call.
+- `GET /health` always returns **HTTP 200** with `{status: "ok", version: "...", main_app_reachable: true/false}`.
+  When the main app is down, `main_app_reachable` is `false` but the HTTP status remains 200 —
+  the connector itself is healthy and can still handle OAuth and token validation. Monitoring
+  systems should inspect the body, not just the status code.
+- Main app reachability check: lightweight `GET /api/version` call (or equivalent ping endpoint).
+
+### Key rotation
+
+Rotating secret values has user-visible impact:
+
+| Key | Impact of rotation | Recovery |
+|---|---|---|
+| `ENCRYPTION_KEY` | All existing connector JWTs fail decryption. Every GPT user must reconnect (re-run OAuth flow). | Plan for low-traffic window. No data is lost — only re-auth is required. |
+| `JWT_SECRET` | Same as `ENCRYPTION_KEY` — all JWTs become invalid. | Same as above. |
+| `HMAC_SHARED_SECRET` | In-flight OAuth sessions (Redis, TTL 10 min) become unverifiable. Brief auth disruption only. | Any user mid-auth-flow must restart. Impact < 10 minutes. |
+| `CONNECTOR_API_KEY` | Server-to-server exchange calls fail. No user-visible impact if rotated atomically. | Must be updated in connector and main app simultaneously. |
 
 ---
 
@@ -505,6 +576,8 @@ Zalo OA integration (if desired — reuses connector service logic).
    enforcement lives only in the connector for now (acceptable for MVP).
 2. The main app's rate limit for `POST /pets` is 10/min — confirm this is sufficient for GPT
    usage patterns (GPT can generate bursts during complex pet creation flows).
-3. Does `GET /api/my-pets` support any filtering params (name, species)? If not, the connector's
-   `find` tool will do client-side filtering on the full list — acceptable for typical user
-   pet counts, but worth confirming scale expectations.
+3. Does `GET /api/my-pets` support any filtering params (name, species)? **Decision**: the
+   connector's `find` tool does client-side filtering on the full list returned by the main app.
+   This is acceptable for typical pet counts per user. If the main app adds `?name=` param later,
+   the connector can optionally use it as a pre-filter, but the connector-side filtering stays
+   regardless (for ranking and disambiguation).
