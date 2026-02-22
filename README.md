@@ -63,26 +63,32 @@ subsequent action call includes that JWT; the connector decrypts the Sanctum tok
 
 ## Project status
 
-**Planning complete. Ready to implement.**
+**In progress — Phase 1 (auth).**
 
-Architecture decisions are finalized in `docs/plan-v1.1.md`. Implementation tasks are in
-`docs/initial-tasks.md`, ordered by dependency. Phase 1 (auth) is the critical path blocker.
+Infrastructure and auth utilities are done (FastAPI, Docker, config, logging, health endpoint,
+JWT, AES-256-GCM, Redis). Currently building the OAuth2 endpoints.
+Architecture decisions are finalized in `docs/plan-v1.1.md`. Task tracker: `docs/plan/index.md`.
 
 ---
 
 ## Development setup
 
-> Code doesn't exist yet — this section will be filled in during Phase 0.
+Full guide: **[docs/install.md](docs/install.md)**
 
 ```bash
-# Coming in Phase 0:
-cp .env.example .env
-# Fill in env vars (see docs/plan-v1.1.md §10 for the full list)
+git clone <repo-url> && cd meo-gpt-connector
+python3 -m venv .venv && source .venv/bin/activate
+pip install -e ".[dev]"
 
-docker compose up
+cp .env.example .env
+# Fill in .env (ENCRYPTION_KEY, JWT_SECRET, etc.)
+
+docker compose up --build
 # Connector: http://localhost:8001
 # Health:    http://localhost:8001/health
 # OpenAPI:   http://localhost:8001/docs
+
+pytest   # all tests, no live services needed
 ```
 
 ---
@@ -91,11 +97,11 @@ docker compose up
 
 | Document | Purpose |
 |---|---|
+| [`docs/install.md`](docs/install.md) | Dev setup, running locally, Docker, tests, common issues |
+| [`docs/plan/index.md`](docs/plan/index.md) | Task tracker — what's done, what's next |
 | [`docs/plan-v1.1.md`](docs/plan-v1.1.md) | Full architecture: auth flow, API surface, tool design, phases |
-| [`docs/initial-tasks.md`](docs/initial-tasks.md) | Ordered implementation task list |
 | [`docs/release.md`](docs/release.md) | Release process: versioning, git tags, branching |
 | [`../meo-mai-moi/tmp/gpt-connector-plan.md`](../meo-mai-moi/tmp/gpt-connector-plan.md) | Changes needed in the main app |
-| [`docs/research/`](docs/research/) | Pre-design research: recommendations from other LLMs, plan v1.0 |
 
 ---
 
