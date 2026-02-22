@@ -4,13 +4,18 @@ from fastapi import FastAPI
 
 from src.core.config import get_settings
 from src.core.logging import RequestLoggingMiddleware, setup_logging
-from src.routers import health, oauth
+from src.routers import health, oauth, pets
+from src.services.main_app import MainAppError, refresh_pet_types_cache
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
     setup_logging(settings.LOG_LEVEL)
+    try:
+        await refresh_pet_types_cache(settings)
+    except MainAppError:
+        pass
     yield
 
 
@@ -25,3 +30,4 @@ app.add_middleware(RequestLoggingMiddleware)
 
 app.include_router(health.router)
 app.include_router(oauth.router)
+app.include_router(pets.router)

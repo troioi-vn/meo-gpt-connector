@@ -5,7 +5,6 @@ import uuid
 from typing import Annotated
 from urllib.parse import urlencode
 
-import httpx
 from fastapi import APIRouter, Depends, Form, HTTPException, Query
 from fastapi.responses import HTMLResponse, RedirectResponse
 
@@ -13,7 +12,7 @@ from src.core import redis as redis_store
 from src.core.config import Settings, get_settings
 from src.core.dependencies import get_current_token
 from src.core.jwt import create_jwt
-from src.services.main_app import exchange_code, revoke_token
+from src.services.main_app import MainAppError, exchange_code, revoke_token
 
 router = APIRouter(prefix="/oauth", tags=["oauth"])
 
@@ -75,10 +74,10 @@ async def callback(
 
     try:
         data = await exchange_code(code, settings)
-    except httpx.HTTPStatusError as exc:
+    except MainAppError as exc:
+        if exc.status_code in (401, 404, 422):
+            raise HTTPException(status_code=502, detail="Main app exchange failed") from exc
         raise HTTPException(status_code=502, detail="Main app exchange failed") from exc
-    except httpx.RequestError as exc:
-        raise HTTPException(status_code=502, detail="Main app unreachable") from exc
 
     await redis_store.delete(f"oauth:session:{session_id}")
 
@@ -121,6 +120,6 @@ async def revoke(
     _, sanctum_token = current
     try:
         await revoke_token(sanctum_token, settings)
-    except (httpx.HTTPStatusError, httpx.RequestError):
+    except MainAppError:
         pass  # Best-effort: don't surface main app errors to the caller
     return {"revoked": True}
