@@ -12,7 +12,9 @@ Tasks for the `meo-gpt-connector` repo.
   - `src/` structure: `main.py`, `routers/`, `models/`, `services/`, `core/`
   - `pyproject.toml` (use `uv` or `poetry` for dependency management)
   - Dependencies: `fastapi`, `uvicorn`, `pydantic`, `httpx`, `python-jose[cryptography]`,
-    `cryptography`, `redis`, `structlog`
+    `cryptography`, `redis`, `structlog`, `python-multipart`
+    (`python-multipart` is required for FastAPI to parse `application/x-www-form-urlencoded`
+    bodies — ChatGPT sends `POST /oauth/token` in this format)
 
 - [ ] **Docker setup**
   - `Dockerfile` (multi-stage: build → slim runtime)
@@ -82,8 +84,8 @@ Blocks everything else. Do not start Phase 2 until auth is working end-to-end.
 
 - [ ] **POST /oauth/revoke** (basic)
   - Validate JWT, extract Sanctum token
-  - Call main app to delete the Sanctum token (if main app exposes such an endpoint)
-  - If not: mark token as revoked in Redis (connector-side blacklist)
+  - Call `POST {MAIN_APP_URL}/api/gpt-auth/revoke` with Bearer `CONNECTOR_API_KEY`
+    and body `{token: sanctum_token}` — main app deletes the token from the DB
 
 - [ ] **Auth middleware for action endpoints**
   - FastAPI dependency: validate JWT, decrypt Sanctum token, attach to request state
@@ -194,8 +196,9 @@ Blocks everything else. Do not start Phase 2 until auth is working end-to-end.
 
 - [ ] Verify all needed endpoints exist and return JSON (not HTML on error)
 - [ ] Verify `auth:sanctum` with token abilities works on write endpoints
-- [ ] Note: `GET /api/my-pets` filter by name — check if the main app supports `?name=` param,
-  add if not (needed for duplicate detection)
+- [ ] Note: `GET /api/my-pets` — connector does client-side filtering; no `?name=` param needed
+  in the main app. If the main app later adds it, the connector can optionally use it as a
+  pre-filter, but connector-side filtering is the design baseline (see plan-v1.1.md §12).
 
 ---
 

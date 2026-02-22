@@ -212,7 +212,7 @@ What happens at each point in the OAuth flow when something goes wrong:
 |---|---|---|---|
 | `GET /oauth/authorize` | Invalid `client_id` | 400 HTML error page | "Invalid request" |
 | `GET /oauth/authorize` | Redis unavailable | 503, abort | "Service temporarily unavailable" |
-| `GET /oauth/callback` | `session_id` not in Redis (expired or never set) | redirect to `redirect_uri?error=access_denied&state={state}` | ChatGPT: "Authorization failed" |
+| `GET /oauth/callback` | `session_id` not in Redis (expired or never set) | HTML 400 error page: "Your session has expired. Please return to ChatGPT and start the connection again." Redirect is impossible — `redirect_uri` and `state` are stored inside the missing Redis key. | User sees error page; must restart from ChatGPT |
 | `GET /oauth/callback` | Exchange call to main app fails (network) | redirect with `error=server_error` | ChatGPT: "Authorization failed" |
 | `GET /oauth/callback` | Exchange call returns 401 (bad `CONNECTOR_API_KEY`) | redirect with `error=server_error` | operator must fix misconfiguration |
 | `GET /oauth/callback` | Exchange call returns 400 (code expired/used) | redirect with `error=access_denied` | ChatGPT: "Authorization failed" |

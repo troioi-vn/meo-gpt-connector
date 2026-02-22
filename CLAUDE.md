@@ -86,7 +86,7 @@ src/
 ## Environment Variables
 
 ```
-MAIN_APP_URL=               # e.g. https://meo.troioi.vn
+MAIN_APP_URL=               # e.g. https://gpt.meo-mai-moi.com
 CONNECTOR_API_KEY=          # Sent to main app for server-to-server exchange calls
 OAUTH_CLIENT_ID=meo-gpt
 OAUTH_CLIENT_SECRET=        # Checked when ChatGPT calls /oauth/token
