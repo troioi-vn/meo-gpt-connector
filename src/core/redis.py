@@ -19,6 +19,18 @@ async def set_with_ttl(key: str, value: str, ttl: int) -> None:
     await r.set(key, value, ex=ttl)
 
 
+async def get(key: str) -> str | None:
+    """Retrieve a key's value, or None if missing/expired."""
+    r = await get_redis()
+    return await r.get(key)
+
+
+async def delete(key: str) -> None:
+    """Delete a key (no-op if already gone)."""
+    r = await get_redis()
+    await r.delete(key)
+
+
 async def get_and_delete(key: str) -> str | None:
     """Atomically GET and DELETE a key.
 

@@ -4,7 +4,7 @@ from fastapi import FastAPI
 
 from src.core.config import get_settings
 from src.core.logging import RequestLoggingMiddleware, setup_logging
-from src.routers import health
+from src.routers import health, oauth
 
 
 @asynccontextmanager
@@ -24,3 +24,4 @@ app = FastAPI(
 app.add_middleware(RequestLoggingMiddleware)
 
 app.include_router(health.router)
+app.include_router(oauth.router)
