@@ -24,8 +24,8 @@ When you are asked to "implement the next task in the plan", you should:
 | 06  | done   | [06-core-api-health.md](./06-core-api-health.md) | Vaccination, medical record, and weight endpoints                           |
 | 07  | done   | [07-admin-interface.md](./07-admin-interface.md) | Minimal developer dashboard via HDMX and Jinja, Redis event logging         |
 | 08  | done   | [08-gpt-integration.md](./08-gpt-integration.md) | OpenAPI descriptions, System Prompts, OpenAI configuration                  |
-| 09  | todo   | [09-hardening.md](./09-hardening.md)             | Rate Limiting, Idempotency Guards, Error Taxonomy                           |
+| 09  | done   | [09-hardening.md](./09-hardening.md)             | Rate Limiting, Idempotency Guards, Error Taxonomy                           |
 
 ---
 
-**Current Focus:** [09-hardening.md](./09-hardening.md)
+**Current Focus:** All tasks complete.

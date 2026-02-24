@@ -1,6 +1,7 @@
-from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import field_validator
 from functools import lru_cache
+
+from pydantic import field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -22,6 +23,7 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "production"
     ADMIN_ENABLED: bool = False
     ADMIN_PASSWORD: str = ""
+    RATE_LIMIT_PER_MINUTE: int = 60
 
     @field_validator("MAIN_APP_URL")
     @classmethod
@@ -33,8 +35,8 @@ class Settings(BaseSettings):
     def validate_encryption_key(cls, v: str) -> str:
         try:
             key_bytes = bytes.fromhex(v)
-        except ValueError:
-            raise ValueError("ENCRYPTION_KEY must be a valid hex string")
+        except ValueError as exc:
+            raise ValueError("ENCRYPTION_KEY must be a valid hex string") from exc
         if len(key_bytes) != 32:
             raise ValueError("ENCRYPTION_KEY must decode to exactly 32 bytes (64 hex chars)")
         return v

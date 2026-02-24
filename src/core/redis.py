@@ -40,3 +40,28 @@ async def get_and_delete(key: str) -> str | None:
     """
     r = await get_redis()
     return await r.getdel(key)
+
+
+async def incr_with_expiry(key: str, ttl: int) -> int:
+    """Increment a counter and set TTL on first increment. Returns the new count.
+
+    Used for fixed-window rate limiting. The TTL is only set when the key is
+    created (count == 1), so the window resets naturally after expiry.
+    """
+    r = await get_redis()
+    count = await r.incr(key)
+    if count == 1:
+        await r.expire(key, ttl)
+    return count
+
+
+async def blacklist_jti(jti: str, ttl: int) -> None:
+    """Add a JWT ID to the revocation blacklist with the given TTL (seconds)."""
+    r = await get_redis()
+    await r.set(f"jwt:bl:{jti}", "1", ex=ttl)
+
+
+async def is_jti_blacklisted(jti: str) -> bool:
+    """Return True if this JWT ID has been revoked."""
+    r = await get_redis()
+    return bool(await r.exists(f"jwt:bl:{jti}"))

@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 
 from src.core.config import Settings, get_settings
-from src.core.dependencies import get_current_token
+from src.core.dependencies import get_current_token_limited as get_current_token
 from src.models.health import CreateWeightRequest, UpdateWeightRequest
 from src.services.main_app import MainAppError, call_main_app
 

@@ -7,9 +7,22 @@ from fastapi import APIRouter, Depends, Query
 from fastapi.responses import JSONResponse
 
 from src.core.config import Settings, get_settings
-from src.core.dependencies import get_current_token
-from src.models.pets import CreatePetRequest, PetFindRequest, PetFindResponse, PetSummary, PetTypeItem, UpdatePetRequest
-from src.services.main_app import MainAppError, call_main_app, get_pet_types_by_name, get_species_name_by_pet_type_id, refresh_pet_types_cache
+from src.core.dependencies import get_current_token_limited as get_current_token
+from src.models.pets import (
+    CreatePetRequest,
+    PetFindRequest,
+    PetFindResponse,
+    PetSummary,
+    PetTypeItem,
+    UpdatePetRequest,
+)
+from src.services.main_app import (
+    MainAppError,
+    call_main_app,
+    get_pet_types_by_name,
+    get_species_name_by_pet_type_id,
+    refresh_pet_types_cache,
+)
 from src.services.pets_normalization import (
     filter_pet_candidates,
     has_exact_duplicate,

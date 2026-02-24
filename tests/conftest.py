@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 from fastapi.testclient import TestClient
 
 from src.core.config import Settings, get_settings
@@ -16,6 +16,33 @@ TEST_SETTINGS = Settings(
     LOG_LEVEL="debug",
     ENVIRONMENT="test",
 )
+
+
+@pytest.fixture(autouse=True)
+def _clear_pet_types_cache():
+    """Reset the module-level pet types cache before each test to prevent bleed-over."""
+    import src.services.main_app as _svc
+
+    _svc._PET_TYPES_BY_NAME.clear()
+    _svc._PET_TYPES_BY_ID.clear()
+    yield
+    _svc._PET_TYPES_BY_NAME.clear()
+    _svc._PET_TYPES_BY_ID.clear()
+
+
+@pytest.fixture(autouse=True)
+def _mock_redis_hardening():
+    """Mock rate-limit and blacklist Redis calls so tests don't need a live Redis.
+
+    By default: tokens are never blacklisted, requests are never rate-limited.
+    Override these in specific tests that exercise those code paths.
+    """
+    with (
+        patch("src.core.redis.is_jti_blacklisted", new=AsyncMock(return_value=False)),
+        patch("src.core.redis.incr_with_expiry", new=AsyncMock(return_value=1)),
+        patch("src.core.redis.blacklist_jti", new=AsyncMock()),
+    ):
+        yield
 
 
 @pytest.fixture

@@ -2,16 +2,18 @@ import hashlib
 import hmac
 import json
 import uuid
+from datetime import UTC, datetime
 from typing import Annotated
 from urllib.parse import urlencode
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Query
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from src.core import redis as redis_store
 from src.core.config import Settings, get_settings
 from src.core.dependencies import get_current_token
 from src.core.jwt import create_jwt
+from src.core.rate_limit import check_rate_limit
 from src.services.main_app import MainAppError, exchange_code, revoke_token
 
 router = APIRouter(prefix="/oauth", tags=["oauth"])
@@ -22,12 +24,16 @@ _CODE_TTL = 300     # 5 minutes
 
 @router.get("/authorize")
 async def authorize(
+    request: Request,
     client_id: str = Query(...),
     response_type: str = Query(...),
     redirect_uri: str = Query(...),
     state: str = Query(...),
     settings: Settings = Depends(get_settings),
 ):
+    client_ip = request.client.host if request.client else "unknown"
+    await check_rate_limit(f"ip:{client_ip}", settings.RATE_LIMIT_PER_MINUTE)
+
     if client_id != settings.OAUTH_CLIENT_ID:
         raise HTTPException(status_code=400, detail="Invalid client_id")
     if response_type != "code":
@@ -114,10 +120,19 @@ async def token(
 
 @router.post("/revoke", status_code=200)
 async def revoke(
+    request: Request,
     current: Annotated[tuple[int, str], Depends(get_current_token)],
     settings: Settings = Depends(get_settings),
 ):
     _, sanctum_token = current
+
+    # Blacklist the JWT so it cannot be used again after revocation.
+    jti = getattr(request.state, "jti", None)
+    token_exp = getattr(request.state, "token_exp", 0)
+    if jti:
+        remaining_ttl = max(1, token_exp - int(datetime.now(UTC).timestamp()))
+        await redis_store.blacklist_jti(jti, ttl=remaining_ttl)
+
     try:
         await revoke_token(sanctum_token, settings)
     except MainAppError:
