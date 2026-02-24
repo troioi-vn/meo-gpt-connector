@@ -235,3 +235,54 @@ docker compose exec redis redis-cli
 # Rebuild only the connector image (without restarting Redis)
 docker compose up -d --build connector
 ```
+
+---
+
+## GPT tool simulation script
+
+For quick manual verification of connector tool behavior (the same sequence GPT Actions calls), use:
+
+```bash
+python scripts/simulate_gpt_tool_flow.py \
+  --sanctum-token "<user_sanctum_token>" \
+  --user-id <user_id>
+```
+
+The script will:
+- try `POST /pets` through the connector,
+- fallback to seeding one pet directly in the main app if create fails due upstream validation,
+- run find/update/weight/vaccination/medical-record calls,
+- print a JSON summary with all step statuses.
+
+### Get a Sanctum token for local testing
+
+From `../meo-mai-moi`:
+
+```bash
+docker compose exec -T backend php artisan tinker --execute='\
+$u=\App\Models\User::where("email","admin@catarchy.space")->first(); \
+echo $u->id."|".$u->createToken("gpt-sim", ["*"])->plainTextToken;'
+```
+
+Use the output as:
+- `--user-id`: value before the first `|`
+- `--sanctum-token`: everything after `<user_id>|`
+
+## Full OAuth simulation script
+
+To exercise the full bridge flow (`authorize -> confirm -> callback -> token`):
+
+```bash
+python scripts/simulate_oauth_flow.py \
+  --sanctum-token "<user_sanctum_token>" \
+  --verify-tools
+```
+
+This script:
+- calls connector `GET /oauth/authorize`,
+- calls main app `POST /api/gpt-auth/confirm` with your Sanctum token,
+- follows connector callback,
+- exchanges the one-time code at connector `POST /oauth/token`,
+- optionally verifies the issued access token with connector `GET /pets`.
+
+It prints a compact JSON trace of each step with status codes.

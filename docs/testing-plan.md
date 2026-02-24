@@ -278,3 +278,34 @@ New user path:
 - **HMAC validation of consent page redirect**: covered as a side effect of `test_auth_flow.py`.
 - **Redis unavailability**: unit test with mocked Redis returning errors — add to `test_auth_flow.py`
   unit coverage for the failure path handling.
+
+---
+
+## Manual GPT action simulation
+
+When debugging a real local stack, run a deterministic post-auth simulation script:
+
+```bash
+python scripts/simulate_gpt_tool_flow.py \
+   --sanctum-token "<user_sanctum_token>" \
+   --user-id <user_id>
+```
+
+The script emits a JSON trace with per-step status and response snippets for:
+- `create_pet` (with automatic fallback seed if upstream requires extra fields),
+- `find_pet`,
+- `update_pet`,
+- `add_weight`,
+- `add_vaccination`,
+- `add_medical_record`,
+- list endpoints for weights/vaccinations/medical records.
+
+For full OAuth bridge verification, run:
+
+```bash
+python scripts/simulate_oauth_flow.py \
+   --sanctum-token "<user_sanctum_token>" \
+   --verify-tools
+```
+
+This validates `authorize -> confirm -> callback -> token` and confirms the issued token can call connector tools.
