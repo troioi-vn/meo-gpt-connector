@@ -78,4 +78,9 @@ known-first-party = ["src"]
 python_version = "3.12"
 strict = true
 ignore_missing_imports = true
+plugins = ["pydantic.mypy"]
 exclude = ["tests/"]
+
+[[tool.mypy.overrides]]
+module = ["src.routers.*", "src.main"]
+disallow_untyped_defs = false

@@ -38,7 +38,7 @@ the OAuth flow itself (short-lived auth codes, session state).
 
 ---
 
-## Project Structure (target)
+## Project Structure
 
 ```
 src/
@@ -47,16 +47,22 @@ src/
 │   ├── oauth.py         # /oauth/authorize, /oauth/callback, /oauth/token, /oauth/revoke
 │   ├── pets.py          # /pets, /pets/{id}
 │   ├── vaccinations.py  # /pets/{id}/vaccinations
-│   ├── medical.py       # /pets/{id}/medical-records
-│   └── weights.py       # /pets/{id}/weights
+│   ├── medical_records.py  # /pets/{id}/medical-records
+│   ├── weights.py       # /pets/{id}/weights
+│   ├── admin.py         # /admin/* (dashboard, event log — Basic Auth)
+│   └── health.py        # /health
 ├── core/
 │   ├── config.py        # Pydantic Settings (env vars)
 │   ├── jwt.py           # Issue and validate JWTs
 │   ├── crypto.py        # AES-256-GCM encrypt/decrypt
 │   ├── redis.py         # Async Redis client
-│   └── logging.py       # structlog setup
+│   ├── logging.py       # structlog setup + RequestLoggingMiddleware
+│   ├── dependencies.py  # get_current_token FastAPI dependency
+│   ├── rate_limit.py    # Per-user rate limiting middleware
+│   └── admin_events.py  # Redis-backed event log for admin dashboard
 ├── services/
-│   └── main_app.py      # httpx client for main app API calls
+│   ├── main_app.py      # httpx client for main app API calls
+│   └── pets_normalization.py  # Species → pet_type_id, age → birthday fields
 └── models/
     ├── pets.py          # Pydantic request/response schemas
     ├── health.py        # Vaccination, medical, weight schemas
@@ -91,11 +97,14 @@ CONNECTOR_API_KEY=          # Sent to main app for server-to-server exchange cal
 OAUTH_CLIENT_ID=meo-gpt
 OAUTH_CLIENT_SECRET=        # Checked when ChatGPT calls /oauth/token
 JWT_SECRET=                 # Signs connector JWTs (HS256)
-ENCRYPTION_KEY=             # AES-256-GCM key for Sanctum token in JWT payload
+ENCRYPTION_KEY=             # AES-256-GCM key for Sanctum token in JWT payload (64 hex chars = 32 bytes)
 HMAC_SHARED_SECRET=         # Shared with main app for consent page HMAC validation
 REDIS_URL=redis://localhost:6379
 LOG_LEVEL=info
 ENVIRONMENT=production
+ADMIN_ENABLED=false         # Enable /admin/* dashboard (Basic Auth)
+ADMIN_PASSWORD=             # Password for admin dashboard (username: admin)
+RATE_LIMIT_PER_MINUTE=60    # Max requests per user per minute
 ```
 
 ---
