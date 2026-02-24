@@ -13,7 +13,11 @@ from src.services.main_app import MainAppError, call_main_app
 router = APIRouter(tags=["vaccinations"])
 
 
-@router.get("/pets/{pet_id}/vaccinations")
+@router.get(
+    "/pets/{pet_id}/vaccinations",
+    operation_id="list_vaccinations",
+    description="Retrieve all vaccination records for a pet. Requires pet_id — use find_pet first to resolve a name to an ID.",
+)
 async def list_vaccinations(
     pet_id: int,
     current_token: Annotated[tuple[int, str], Depends(get_current_token)],
@@ -31,7 +35,11 @@ async def list_vaccinations(
         return JSONResponse(status_code=exc.status_code, content=exc.payload)
 
 
-@router.post("/pets/{pet_id}/vaccinations")
+@router.post(
+    "/pets/{pet_id}/vaccinations",
+    operation_id="add_vaccination",
+    description="Record a new vaccination for a pet. When adding from a photo, extract all visible fields from the certificate before calling. Requires pet_id — use find_pet first.",
+)
 async def create_vaccination(
     pet_id: int,
     payload: CreateVaccinationRequest,
@@ -62,7 +70,11 @@ async def create_vaccination(
         return JSONResponse(status_code=exc.status_code, content=exc.payload)
 
 
-@router.patch("/pets/{pet_id}/vaccinations/{vaccination_id}")
+@router.patch(
+    "/pets/{pet_id}/vaccinations/{vaccination_id}",
+    operation_id="update_vaccination",
+    description="Correct an existing vaccination record. Only send fields that need to change.",
+)
 async def update_vaccination(
     pet_id: int,
     vaccination_id: int,

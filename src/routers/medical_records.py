@@ -19,7 +19,11 @@ def _coerce_record_type(value: str | None) -> str:
     return value if value in VALID_RECORD_TYPES else "other"
 
 
-@router.get("/pets/{pet_id}/medical-records")
+@router.get(
+    "/pets/{pet_id}/medical-records",
+    operation_id="list_medical_records",
+    description="Retrieve all medical records for a pet (vet visits, deworming, treatments, surgeries, dental). Requires pet_id — use find_pet first.",
+)
 async def list_medical_records(
     pet_id: int,
     current_token: Annotated[tuple[int, str], Depends(get_current_token)],
@@ -37,7 +41,11 @@ async def list_medical_records(
         return JSONResponse(status_code=exc.status_code, content=exc.payload)
 
 
-@router.post("/pets/{pet_id}/medical-records")
+@router.post(
+    "/pets/{pet_id}/medical-records",
+    operation_id="add_medical_record",
+    description="Log a new medical event for a pet. If the record_type is ambiguous, use 'other' — never invent a type. Requires pet_id — use find_pet first.",
+)
 async def create_medical_record(
     pet_id: int,
     payload: CreateMedicalRecordRequest,
@@ -69,7 +77,11 @@ async def create_medical_record(
         return JSONResponse(status_code=exc.status_code, content=exc.payload)
 
 
-@router.patch("/pets/{pet_id}/medical-records/{record_id}")
+@router.patch(
+    "/pets/{pet_id}/medical-records/{record_id}",
+    operation_id="update_medical_record",
+    description="Correct an existing medical record. Only send fields that need to change.",
+)
 async def update_medical_record(
     pet_id: int,
     record_id: int,

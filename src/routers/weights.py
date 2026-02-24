@@ -14,7 +14,11 @@ from src.services.main_app import MainAppError, call_main_app
 router = APIRouter(tags=["weights"])
 
 
-@router.get("/pets/{pet_id}/weights")
+@router.get(
+    "/pets/{pet_id}/weights",
+    operation_id="list_weights",
+    description="Retrieve the weight history for a pet, ordered by date. Requires pet_id — use find_pet first.",
+)
 async def list_weights(
     pet_id: int,
     current_token: Annotated[tuple[int, str], Depends(get_current_token)],
@@ -32,7 +36,11 @@ async def list_weights(
         return JSONResponse(status_code=exc.status_code, content=exc.payload)
 
 
-@router.post("/pets/{pet_id}/weights")
+@router.post(
+    "/pets/{pet_id}/weights",
+    operation_id="add_weight",
+    description="Log a new weight measurement for a pet. If no date is given, today's date is used automatically. Convert grams to kg before calling if the user stated grams (divide by 1000). Requires pet_id — use find_pet first.",
+)
 async def create_weight(
     pet_id: int,
     payload: CreateWeightRequest,
@@ -60,7 +68,11 @@ async def create_weight(
         return JSONResponse(status_code=exc.status_code, content=exc.payload)
 
 
-@router.patch("/pets/{pet_id}/weights/{weight_id}")
+@router.patch(
+    "/pets/{pet_id}/weights/{weight_id}",
+    operation_id="update_weight",
+    description="Correct an existing weight record. Only send fields that need to change.",
+)
 async def update_weight(
     pet_id: int,
     weight_id: int,

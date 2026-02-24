@@ -54,7 +54,12 @@ async def _load_pets(current_token: tuple[int, str], settings: Settings) -> list
     return [to_pet_summary(item, species_by_type_id) for item in _extract_list(raw)]
 
 
-@router.get("/pet-types", response_model=list[PetTypeItem])
+@router.get(
+    "/pet-types",
+    operation_id="list_pet_types",
+    response_model=list[PetTypeItem],
+    description="Retrieve all available species/pet types. Call this before create_pet if you are unsure which species names are supported.",
+)
 async def get_pet_types(settings: Settings = Depends(get_settings)):
     pet_types = get_pet_types_by_name()
     if not pet_types:
@@ -67,7 +72,12 @@ async def get_pet_types(settings: Settings = Depends(get_settings)):
     return [PetTypeItem(id=pet_type_id, name=name) for name, pet_type_id in sorted(pet_types.items())]
 
 
-@router.get("/pets", response_model=list[PetSummary])
+@router.get(
+    "/pets",
+    operation_id="list_pets",
+    response_model=list[PetSummary],
+    description="Return all pets belonging to the authenticated user. Use find_pet instead when the user refers to a pet by name — only call list_pets when the user explicitly wants to see all their pets.",
+)
 async def list_pets(
     current_token: Annotated[tuple[int, str], Depends(get_current_token)],
     settings: Settings = Depends(get_settings),
@@ -82,7 +92,11 @@ async def list_pets(
     return filter_pet_candidates(pets, name=name, species=species)
 
 
-@router.get("/pets/{pet_id}")
+@router.get(
+    "/pets/{pet_id}",
+    operation_id="get_pet",
+    description="Retrieve full details for a single pet by its numeric ID. Requires a known pet_id — call find_pet first to resolve a name to an ID.",
+)
 async def get_pet(
     pet_id: int,
     current_token: Annotated[tuple[int, str], Depends(get_current_token)],
@@ -100,7 +114,12 @@ async def get_pet(
         return JSONResponse(status_code=exc.status_code, content=exc.payload)
 
 
-@router.post("/pets/find", response_model=PetFindResponse)
+@router.post(
+    "/pets/find",
+    operation_id="find_pet",
+    response_model=PetFindResponse,
+    description="Search the user's pets by name and/or species. Call this BEFORE any pet-specific tool whenever the user refers to a pet by name. Use the id field from the matching candidate for all subsequent calls targeting that pet.",
+)
 async def find_pets(
     payload: PetFindRequest,
     current_token: Annotated[tuple[int, str], Depends(get_current_token)],
@@ -115,7 +134,11 @@ async def find_pets(
     return PetFindResponse(candidates=[PetSummary(**item) for item in candidates])
 
 
-@router.post("/pets")
+@router.post(
+    "/pets",
+    operation_id="create_pet",
+    description="Create a new pet profile. If the response is DUPLICATE_WARNING, do not create the pet — tell the user and ask whether this is a new animal or the same one. Only retry with confirm_duplicate=true if the user explicitly confirms it is a different animal with the same name.",
+)
 async def create_pet(
     payload: CreatePetRequest,
     current_token: Annotated[tuple[int, str], Depends(get_current_token)],
@@ -196,7 +219,11 @@ async def create_pet(
         return JSONResponse(status_code=exc.status_code, content=exc.payload)
 
 
-@router.patch("/pets/{pet_id}")
+@router.patch(
+    "/pets/{pet_id}",
+    operation_id="update_pet",
+    description="Update one or more fields on an existing pet. Only include fields the user wants to change. Requires pet_id — call find_pet first to resolve a name to an ID.",
+)
 async def update_pet(
     pet_id: int,
     payload: UpdatePetRequest,
