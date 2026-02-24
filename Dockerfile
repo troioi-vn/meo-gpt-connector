@@ -11,7 +11,7 @@ RUN uv venv .venv && \
     uv pip install --python .venv/bin/python \
     fastapi "uvicorn[standard]" pydantic "pydantic-settings" httpx \
     "python-jose[cryptography]" cryptography "redis[hiredis]" structlog \
-    python-multipart
+    python-multipart jinja2
 
 # ---- final ----
 FROM python:3.12-slim AS final
