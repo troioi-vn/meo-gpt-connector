@@ -3,11 +3,10 @@
   <thead>
     <tr>
       <th>Time</th>
+      <th>User</th>
       <th>Method</th>
       <th>Path</th>
-      <th>User</th>
       <th>Status</th>
-      <th>ms</th>
       <th>Error Code</th>
     </tr>
   </thead>
@@ -16,11 +15,10 @@
     {% set cls = "warn" if e.status < 500 else "err" %}
     <tr>
       <td>{{ e.ts | int }}</td>
+      <td>{{ e.user_id or "—" }}</td>
       <td>{{ e.method }}</td>
       <td>{{ e.path }}</td>
-      <td>{{ e.user_id or "—" }}</td>
       <td class="{{ cls }}">{{ e.status }}</td>
-      <td>{{ e.latency_ms }}</td>
       <td>{{ e.error_code or "—" }}</td>
     </tr>
     {% endfor %}

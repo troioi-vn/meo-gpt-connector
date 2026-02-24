@@ -14,6 +14,9 @@ templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
+_TOOL_PATH_PREFIXES = ["/pets", "/pet-types"]
+_AUTH_PATH_PREFIXES = ["/oauth/"]
+
 
 async def _require_admin(request: Request, settings: Settings = Depends(get_settings)) -> None:
     """Dependency: return 404 if admin disabled, 401 if credentials are wrong."""
@@ -51,31 +54,55 @@ async def admin_index(request: Request) -> HTMLResponse:
 
 @router.get("/partials/requests", response_class=HTMLResponse, dependencies=[Depends(_require_admin)])
 async def admin_requests(request: Request) -> HTMLResponse:
-    events = await get_recent(n=50)
+    events = await get_recent(n=50, include_paths=_TOOL_PATH_PREFIXES, skip_admin=True)
     return templates.TemplateResponse(request, "admin/partials/requests.html", {"events": events})
 
 
 @router.get("/partials/errors", response_class=HTMLResponse, dependencies=[Depends(_require_admin)])
 async def admin_errors(request: Request) -> HTMLResponse:
-    events = await get_recent(n=50, errors_only=True)
+    events = await get_recent(n=50, errors_only=True, skip_admin=True)
     return templates.TemplateResponse(request, "admin/partials/errors.html", {"events": events})
+
+
+@router.get("/partials/auth", response_class=HTMLResponse, dependencies=[Depends(_require_admin)])
+async def admin_auth(request: Request) -> HTMLResponse:
+    events = await get_recent(n=50, include_paths=_AUTH_PATH_PREFIXES, skip_admin=True)
+    return templates.TemplateResponse(request, "admin/partials/auth.html", {"events": events})
 
 
 @router.get("/partials/stats", response_class=HTMLResponse, dependencies=[Depends(_require_admin)])
 async def admin_stats(request: Request) -> HTMLResponse:
-    total_events, active_sessions, recent_errors = 0, 0, []
+    total_events, active_sessions = 0, 0
+    signal_events: list[dict] = []
+    tool_events: list[dict] = []
+    auth_events: list[dict] = []
+    recent_errors: list[dict] = []
     try:
         total_events = await get_total_event_count()
         active_sessions = await get_active_session_count()
-        recent_errors = await get_recent(n=50, errors_only=True)
+        signal_events = await get_recent(n=500, skip_admin=True)
+        tool_events = await get_recent(n=200, include_paths=_TOOL_PATH_PREFIXES, skip_admin=True)
+        auth_events = await get_recent(n=200, include_paths=_AUTH_PATH_PREFIXES, skip_admin=True)
+        recent_errors = await get_recent(n=50, errors_only=True, skip_admin=True)
     except Exception:
         pass
+
+    successful_logins = [
+        event for event in auth_events
+        if event.get("path") == "/oauth/token" and event.get("status", 0) < 400
+    ]
+    auth_errors = [event for event in auth_events if event.get("status", 0) >= 400]
+
     return templates.TemplateResponse(
         request,
         "admin/partials/stats.html",
         {
             "total_events": total_events,
+            "signal_events": len(signal_events),
+            "tool_events": len(tool_events),
             "active_sessions": active_sessions,
             "error_count": len(recent_errors),
+            "successful_logins": len(successful_logins),
+            "auth_error_count": len(auth_errors),
         },
     )

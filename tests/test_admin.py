@@ -48,8 +48,16 @@ def admin_client():
 
 def test_admin_disabled_returns_404(client):
     """When ADMIN_ENABLED=False (default test settings), /admin/ returns 404."""
-    resp = client.get("/admin/")
-    assert resp.status_code == 404
+    from src.main import app
+
+    disabled = _make_admin_settings(ADMIN_ENABLED=False)
+    app.dependency_overrides[get_settings] = lambda: disabled
+    try:
+        with patch("src.main.get_settings", return_value=disabled):
+            resp = client.get("/admin/")
+        assert resp.status_code == 404
+    finally:
+        app.dependency_overrides.clear()
 
 
 # ── Auth enforcement ──────────────────────────────────────────────────────────
@@ -83,6 +91,7 @@ def test_admin_index_renders(admin_client):
     assert resp.status_code == 200
     assert "htmx" in resp.text.lower()
     assert "admin/partials/requests" in resp.text
+    assert "admin/partials/auth" in resp.text
 
 
 def test_admin_requests_partial(admin_client):
@@ -112,6 +121,17 @@ def test_admin_errors_partial_no_errors(admin_client):
         resp = admin_client.get("/admin/partials/errors", headers=_basic_header("admin", "testpass"))
     assert resp.status_code == 200
     assert "Meow" in resp.text
+
+
+def test_admin_auth_partial(admin_client):
+    auth_events = [
+        {"ts": 1700000003, "method": "POST", "path": "/oauth/token", "user_id": None, "status": 200, "latency_ms": 7, "error_code": None},
+    ]
+    with patch("src.routers.admin.get_recent", new_callable=AsyncMock, return_value=auth_events):
+        resp = admin_client.get("/admin/partials/auth", headers=_basic_header("admin", "testpass"))
+    assert resp.status_code == 200
+    assert "/oauth/token" in resp.text
+    assert "token exchange" in resp.text
 
 
 def test_admin_stats_partial(admin_client):
@@ -154,6 +174,20 @@ async def test_get_recent_errors_only():
         events = await get_recent(n=50, errors_only=True)
     assert len(events) == 1
     assert events[0]["status"] == 404
+
+
+@pytest.mark.asyncio
+async def test_get_recent_skip_admin():
+    mock_redis = AsyncMock()
+    mock_redis.zrevrange.return_value = [
+        json.dumps({"ts": 1.0, "path": "/admin/partials/stats", "status": 200}),
+        json.dumps({"ts": 0.9, "path": "/pets", "status": 200}),
+    ]
+    with patch("src.core.admin_events.get_redis", return_value=mock_redis):
+        from src.core.admin_events import get_recent
+        events = await get_recent(n=50, skip_admin=True)
+    assert len(events) == 1
+    assert events[0]["path"] == "/pets"
 
 
 @pytest.mark.asyncio

@@ -1,0 +1,39 @@
+{% if events %}
+<table>
+  <thead>
+    <tr>
+      <th>Time</th>
+      <th>Method</th>
+      <th>Path</th>
+      <th>Status</th>
+      <th>User</th>
+      <th>Event</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for e in events %}
+    {% set cls = "ok" if e.status < 400 else ("warn" if e.status < 500 else "err") %}
+    {% set event_label = "other" %}
+    {% if e.path == "/oauth/authorize" %}
+      {% set event_label = "authorize" %}
+    {% elif e.path == "/oauth/callback" %}
+      {% set event_label = "callback" %}
+    {% elif e.path == "/oauth/token" %}
+      {% set event_label = "token exchange" %}
+    {% elif e.path == "/oauth/revoke" %}
+      {% set event_label = "revoke" %}
+    {% endif %}
+    <tr>
+      <td>{{ e.ts | int }}</td>
+      <td>{{ e.method }}</td>
+      <td>{{ e.path }}</td>
+      <td class="{{ cls }}">{{ e.status }}</td>
+      <td>{{ e.user_id or "—" }}</td>
+      <td>{{ event_label }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p style="color:#555">No OAuth/login activity yet.</p>
+{% endif %}

@@ -10,7 +10,7 @@
 </section>
 
 <section>
-  <h2>Recent Requests</h2>
+  <h2>Tool Activity</h2>
   <div
     hx-get="/admin/partials/requests"
     hx-trigger="load, every 5s"
@@ -20,7 +20,17 @@
 </section>
 
 <section>
-  <h2>Recent Errors</h2>
+  <h2>OAuth / Login Flow</h2>
+  <div
+    hx-get="/admin/partials/auth"
+    hx-trigger="load, every 5s"
+    hx-indicator="#htmx-indicator">
+    <p style="color:#555">Loading…</p>
+  </div>
+</section>
+
+<section>
+  <h2>Recent Connector Errors</h2>
   <div
     hx-get="/admin/partials/errors"
     hx-trigger="load, every 5s"

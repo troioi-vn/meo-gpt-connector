@@ -2,7 +2,23 @@
 <div class="stat-grid">
   <div class="stat">
     <div class="stat-value">{{ total_events }}</div>
-    <div class="stat-label">Total Events</div>
+    <div class="stat-label">Total Stored Events</div>
+  </div>
+  <div class="stat">
+    <div class="stat-value">{{ signal_events }}</div>
+    <div class="stat-label">Signal Events (last 500)</div>
+  </div>
+  <div class="stat">
+    <div class="stat-value">{{ tool_events }}</div>
+    <div class="stat-label">Tool Calls (last 200)</div>
+  </div>
+  <div class="stat">
+    <div class="stat-value">{{ successful_logins }}</div>
+    <div class="stat-label">Successful Logins (last 200 auth events)</div>
+  </div>
+  <div class="stat">
+    <div class="stat-value">{{ auth_error_count }}</div>
+    <div class="stat-label">OAuth Errors (last 200 auth events)</div>
   </div>
   <div class="stat">
     <div class="stat-value">{{ active_sessions }}</div>
@@ -10,6 +26,6 @@
   </div>
   <div class="stat">
     <div class="stat-value">{{ error_count }}</div>
-    <div class="stat-label">Errors (last 50)</div>
+    <div class="stat-label">Connector Errors (last 50)</div>
   </div>
 </div>

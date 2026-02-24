@@ -3,11 +3,11 @@
   <thead>
     <tr>
       <th>Time</th>
-      <th>Method</th>
-      <th>Path</th>
       <th>User</th>
+      <th>Method</th>
+      <th>Tool Path</th>
       <th>Status</th>
-      <th>ms</th>
+      <th>Error Code</th>
     </tr>
   </thead>
   <tbody>
@@ -15,15 +15,15 @@
     {% set cls = "ok" if e.status < 400 else ("warn" if e.status < 500 else "err") %}
     <tr>
       <td>{{ e.ts | int }}</td>
+      <td>{{ e.user_id or "—" }}</td>
       <td>{{ e.method }}</td>
       <td>{{ e.path }}</td>
-      <td>{{ e.user_id or "—" }}</td>
       <td class="{{ cls }}">{{ e.status }}</td>
-      <td>{{ e.latency_ms }}</td>
+      <td>{{ e.error_code or "—" }}</td>
     </tr>
     {% endfor %}
   </tbody>
 </table>
 {% else %}
-<p style="color:#555">No events yet.</p>
+<p style="color:#555">No tool activity yet.</p>
 {% endif %}
