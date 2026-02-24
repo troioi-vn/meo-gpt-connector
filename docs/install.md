@@ -286,3 +286,6 @@ This script:
 - optionally verifies the issued access token with connector `GET /pets`.
 
 It prints a compact JSON trace of each step with status codes.
+
+If `confirm` returns `Invalid session signature`, make sure connector `HMAC_SHARED_SECRET`
+and main app `GPT_CONNECTOR_HMAC_SECRET` are exactly the same value.
