@@ -30,11 +30,11 @@ async def _require_admin(request: Request, settings: Settings = Depends(get_sett
     try:
         decoded = base64.b64decode(auth_header[6:]).decode()
         username, password = decoded.split(":", 1)
-    except Exception:
+    except Exception as exc:
         raise HTTPException(
             status_code=401,
             headers={"WWW-Authenticate": 'Basic realm="Meo GPT Admin"'},
-        )
+        ) from exc
 
     password_ok = secrets.compare_digest(password.encode(), settings.ADMIN_PASSWORD.encode())
     if username != "admin" or not password_ok:

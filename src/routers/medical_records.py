@@ -32,7 +32,7 @@ async def list_medical_records(
     pet_id: int,
     current_token: Annotated[tuple[int, str], Depends(get_current_token)],
     settings: Settings = Depends(get_settings),
-):
+) -> Any:
     _, sanctum_token = current_token
     try:
         return await call_main_app(
@@ -55,7 +55,7 @@ async def create_medical_record(
     payload: CreateMedicalRecordRequest,
     current_token: Annotated[tuple[int, str], Depends(get_current_token)],
     settings: Settings = Depends(get_settings),
-):
+) -> Any:
     _, sanctum_token = current_token
     upstream: dict[str, Any] = {
         "record_type": _coerce_record_type(payload.record_type),
@@ -92,7 +92,7 @@ async def update_medical_record(
     payload: UpdateMedicalRecordRequest,
     current_token: Annotated[tuple[int, str], Depends(get_current_token)],
     settings: Settings = Depends(get_settings),
-):
+) -> Any:
     _, sanctum_token = current_token
     upstream: dict[str, Any] = {}
     if payload.record_type is not None:

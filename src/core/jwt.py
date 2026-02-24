@@ -1,5 +1,6 @@
 import uuid as _uuid
 from datetime import UTC, datetime, timedelta
+from typing import Any, cast
 
 from jose import JWTError, jwt
 
@@ -27,7 +28,7 @@ def create_jwt(user_id: int, sanctum_token: str) -> str:
         "exp": exp,
         "jti": _uuid.uuid4().hex,
     }
-    return jwt.encode(payload, settings.JWT_SECRET, algorithm=_ALGORITHM)
+    return cast(str, jwt.encode(payload, settings.JWT_SECRET, algorithm=_ALGORITHM))
 
 
 def validate_jwt(token: str) -> tuple[int, str]:

@@ -1,5 +1,7 @@
+from __future__ import annotations
 import json
 import time
+from typing import Any
 
 from src.core.redis import get_redis
 
@@ -7,7 +9,7 @@ _KEY = "admin:events"
 _MAX = 1000
 
 
-async def append_event(event: dict) -> None:
+async def append_event(event: dict[str, Any]) -> None:
     """Append a request event to the admin sorted set. Trims to last 1000."""
     r = await get_redis()
     score = event.get("ts", time.time())
@@ -15,7 +17,7 @@ async def append_event(event: dict) -> None:
     await r.zremrangebyrank(_KEY, 0, -(_MAX + 1))
 
 
-async def get_recent(n: int = 50, errors_only: bool = False) -> list[dict]:
+async def get_recent(n: int = 50, errors_only: bool = False) -> list[dict[str, Any]]:
     """Return up to n most-recent events, optionally filtered to status >= 400."""
     r = await get_redis()
     raw = await r.zrevrange(_KEY, 0, n - 1)
@@ -35,4 +37,4 @@ async def get_active_session_count() -> int:
 async def get_total_event_count() -> int:
     """Return total number of stored events."""
     r = await get_redis()
-    return await r.zcard(_KEY)
+    return await r.zcard(_KEY)  # type: ignore[no-any-return]

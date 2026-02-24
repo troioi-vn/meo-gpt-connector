@@ -22,7 +22,7 @@ async def list_vaccinations(
     pet_id: int,
     current_token: Annotated[tuple[int, str], Depends(get_current_token)],
     settings: Settings = Depends(get_settings),
-):
+) -> Any:
     _, sanctum_token = current_token
     try:
         return await call_main_app(
@@ -45,7 +45,7 @@ async def create_vaccination(
     payload: CreateVaccinationRequest,
     current_token: Annotated[tuple[int, str], Depends(get_current_token)],
     settings: Settings = Depends(get_settings),
-):
+) -> Any:
     _, sanctum_token = current_token
     upstream: dict[str, Any] = {
         "vaccine_name": payload.vaccine_name,
@@ -81,7 +81,7 @@ async def update_vaccination(
     payload: UpdateVaccinationRequest,
     current_token: Annotated[tuple[int, str], Depends(get_current_token)],
     settings: Settings = Depends(get_settings),
-):
+) -> Any:
     _, sanctum_token = current_token
     upstream: dict[str, Any] = {}
     if payload.vaccine_name is not None:

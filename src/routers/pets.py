@@ -73,7 +73,7 @@ async def _load_pets(current_token: tuple[int, str], settings: Settings) -> list
     response_model=list[PetTypeItem],
     description="Retrieve all available species/pet types. Call this before create_pet if you are unsure which species names are supported.",
 )
-async def get_pet_types(settings: Settings = Depends(get_settings)):
+async def get_pet_types(settings: Settings = Depends(get_settings)) -> Any:
     pet_types = get_pet_types_by_name()
     if not pet_types:
         try:
@@ -96,7 +96,7 @@ async def list_pets(
     settings: Settings = Depends(get_settings),
     name: str | None = Query(default=None),
     species: str | None = Query(default=None),
-):
+) -> Any:
     try:
         pets = await _load_pets(current_token, settings)
     except MainAppError as exc:
@@ -114,7 +114,7 @@ async def get_pet(
     pet_id: int,
     current_token: Annotated[tuple[int, str], Depends(get_current_token)],
     settings: Settings = Depends(get_settings),
-):
+) -> Any:
     _, sanctum_token = current_token
     try:
         return await call_main_app(
@@ -137,7 +137,7 @@ async def find_pets(
     payload: PetFindRequest,
     current_token: Annotated[tuple[int, str], Depends(get_current_token)],
     settings: Settings = Depends(get_settings),
-):
+) -> Any:
     try:
         pets = await _load_pets(current_token, settings)
     except MainAppError as exc:
@@ -156,7 +156,7 @@ async def create_pet(
     payload: CreatePetRequest,
     current_token: Annotated[tuple[int, str], Depends(get_current_token)],
     settings: Settings = Depends(get_settings),
-):
+) -> Any:
     _, sanctum_token = current_token
     pet_types = get_pet_types_by_name()
     if not pet_types:
@@ -242,7 +242,7 @@ async def update_pet(
     payload: UpdatePetRequest,
     current_token: Annotated[tuple[int, str], Depends(get_current_token)],
     settings: Settings = Depends(get_settings),
-):
+) -> Any:
     _, sanctum_token = current_token
     upstream_payload: dict[str, Any] = {}
 

@@ -1,5 +1,6 @@
-import sys
-from importlib.metadata import version, PackageNotFoundError
+import tomllib
+from importlib.metadata import PackageNotFoundError, version
+from typing import Any, cast
 
 import httpx
 from fastapi import APIRouter, Depends
@@ -17,14 +18,9 @@ def _get_version() -> str:
         pass
 
     try:
-        if sys.version_info >= (3, 11):
-            import tomllib
-        else:
-            import tomllib  # type: ignore[no-redef]
-
         with open("pyproject.toml", "rb") as f:
             data = tomllib.load(f)
-        return data["project"]["version"]
+        return cast(str, data["project"]["version"])
     except Exception:
         return "unknown"
 

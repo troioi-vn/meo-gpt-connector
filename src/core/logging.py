@@ -1,6 +1,7 @@
 import logging
 import time
 import uuid
+from typing import Any, Awaitable, Callable, cast
 
 import structlog
 from fastapi import Request, Response
@@ -31,11 +32,13 @@ def setup_logging(log_level: str = "info") -> None:
 
 
 def get_logger(name: str | None = None) -> structlog.BoundLogger:
-    return structlog.get_logger(name)
+    return cast(structlog.BoundLogger, structlog.get_logger(name))
 
 
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next) -> Response:
+    async def dispatch(
+        self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
         request_id = str(uuid.uuid4())
         start = time.perf_counter()
 

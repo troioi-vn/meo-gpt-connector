@@ -3,7 +3,7 @@ import hmac
 import json
 import uuid
 from datetime import UTC, datetime
-from typing import Annotated
+from typing import Annotated, Any
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
@@ -30,7 +30,7 @@ async def authorize(
     redirect_uri: str = Query(...),
     state: str = Query(...),
     settings: Settings = Depends(get_settings),
-):
+) -> Any:
     client_ip = request.client.host if request.client else "unknown"
     await check_rate_limit(f"ip:{client_ip}", settings.RATE_LIMIT_PER_MINUTE)
 
@@ -60,7 +60,7 @@ async def callback(
     session_id: str = Query(...),
     code: str = Query(...),
     settings: Settings = Depends(get_settings),
-):
+) -> Any:
     raw = await redis_store.get(f"oauth:session:{session_id}")
     if raw is None:
         return HTMLResponse(
@@ -102,7 +102,7 @@ async def token(
     grant_type: Annotated[str, Form()],
     code: Annotated[str, Form()],
     settings: Settings = Depends(get_settings),
-):
+) -> Any:
     if client_id != settings.OAUTH_CLIENT_ID or client_secret != settings.OAUTH_CLIENT_SECRET:
         raise HTTPException(status_code=401, detail="Invalid client credentials")
     if grant_type != "authorization_code":
@@ -123,7 +123,7 @@ async def revoke(
     request: Request,
     current: Annotated[tuple[int, str], Depends(get_current_token)],
     settings: Settings = Depends(get_settings),
-):
+) -> Any:
     _, sanctum_token = current
 
     # Blacklist the JWT so it cannot be used again after revocation.

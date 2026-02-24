@@ -23,7 +23,7 @@ async def list_weights(
     pet_id: int,
     current_token: Annotated[tuple[int, str], Depends(get_current_token)],
     settings: Settings = Depends(get_settings),
-):
+) -> Any:
     _, sanctum_token = current_token
     try:
         return await call_main_app(
@@ -46,7 +46,7 @@ async def create_weight(
     payload: CreateWeightRequest,
     current_token: Annotated[tuple[int, str], Depends(get_current_token)],
     settings: Settings = Depends(get_settings),
-):
+) -> Any:
     _, sanctum_token = current_token
     record_date = payload.measured_at if payload.measured_at is not None else date.today()
     upstream: dict[str, Any] = {
@@ -79,7 +79,7 @@ async def update_weight(
     payload: UpdateWeightRequest,
     current_token: Annotated[tuple[int, str], Depends(get_current_token)],
     settings: Settings = Depends(get_settings),
-):
+) -> Any:
     _, sanctum_token = current_token
     upstream: dict[str, Any] = {}
     if payload.weight_kg is not None:

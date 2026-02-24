@@ -172,7 +172,7 @@ async def refresh_pet_types_cache(settings: Settings) -> None:
             if not isinstance(raw_name, str):
                 continue
             try:
-                pet_type_id = int(raw_id)
+                pet_type_id = int(raw_id)  # type: ignore[arg-type]
             except (TypeError, ValueError):
                 continue
             normalized_name = raw_name.strip().lower()
@@ -195,7 +195,7 @@ def get_species_name_by_pet_type_id() -> dict[int, str]:
     return dict(_PET_TYPES_BY_ID)
 
 
-async def exchange_code(code: str, settings: Settings) -> dict:
+async def exchange_code(code: str, settings: Settings) -> dict[str, Any]:
     """Exchange a one-time auth code for a Sanctum token + user_id from the main app."""
     data = await call_main_app(
         method="POST",

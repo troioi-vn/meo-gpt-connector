@@ -40,10 +40,10 @@ def normalize_birth_fields(
         }
 
     if birth_month_year is not None:
-        year, month = birth_month_year.split("-")
+        y_str, m_str = birth_month_year.split("-")
         return {
-            "birthday_year": int(year),
-            "birthday_month": int(month),
+            "birthday_year": int(y_str),
+            "birthday_month": int(m_str),
             "birthday_precision": "month",
         }
 

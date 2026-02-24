@@ -1,8 +1,7 @@
 from datetime import date
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
-
 
 SexInput = Literal["male", "female", "unknown", "not_specified"]
 
@@ -60,7 +59,7 @@ class CreatePetRequest(BaseModel):
 
 
 class PetUpsertResponse(BaseModel):
-    pet: dict
+    pet: dict[str, Any]
 
 
 class UpdatePetRequest(BaseModel):

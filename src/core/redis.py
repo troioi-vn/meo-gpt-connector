@@ -22,7 +22,7 @@ async def set_with_ttl(key: str, value: str, ttl: int) -> None:
 async def get(key: str) -> str | None:
     """Retrieve a key's value, or None if missing/expired."""
     r = await get_redis()
-    return await r.get(key)
+    return await r.get(key)  # type: ignore[no-any-return]
 
 
 async def delete(key: str) -> None:
@@ -39,7 +39,7 @@ async def get_and_delete(key: str) -> str | None:
     the same code.
     """
     r = await get_redis()
-    return await r.getdel(key)
+    return await r.getdel(key)  # type: ignore[no-any-return]
 
 
 async def incr_with_expiry(key: str, ttl: int) -> int:
@@ -52,7 +52,7 @@ async def incr_with_expiry(key: str, ttl: int) -> int:
     count = await r.incr(key)
     if count == 1:
         await r.expire(key, ttl)
-    return count
+    return count  # type: ignore[no-any-return]
 
 
 async def blacklist_jti(jti: str, ttl: int) -> None:

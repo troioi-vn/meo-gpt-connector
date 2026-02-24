@@ -1,15 +1,16 @@
 from contextlib import asynccontextmanager
+from typing import AsyncGenerator
 
 from fastapi import FastAPI
 
 from src.core.config import get_settings
 from src.core.logging import RequestLoggingMiddleware, setup_logging
-from src.routers import admin, health, oauth, pets, vaccinations, medical_records, weights
+from src.routers import admin, health, medical_records, oauth, pets, vaccinations, weights
 from src.services.main_app import MainAppError, refresh_pet_types_cache
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     settings = get_settings()
     setup_logging(settings.LOG_LEVEL)
     try:

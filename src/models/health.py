@@ -4,7 +4,6 @@ from datetime import date
 
 from pydantic import BaseModel, Field
 
-
 VALID_RECORD_TYPES: frozenset[str] = frozenset(
     {"checkup", "deworming", "flea_treatment", "surgery", "dental", "other"}
 )
