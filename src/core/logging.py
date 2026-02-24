@@ -1,6 +1,6 @@
 import logging
-import uuid
 import time
+import uuid
 
 import structlog
 from fastapi import Request, Response
@@ -55,4 +55,23 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         )
 
         response.headers["X-Request-ID"] = request_id
+
+        # Append to admin event log (best-effort; silently ignored if Redis is down)
+        user_id: int | None = getattr(request.state, "user_id", None)
+        event = {
+            "request_id": request_id,
+            "ts": time.time(),
+            "method": request.method,
+            "path": str(request.url.path),
+            "user_id": user_id,
+            "status": response.status_code,
+            "latency_ms": latency_ms,
+            "error_code": None,
+        }
+        try:
+            from src.core.admin_events import append_event
+            await append_event(event)
+        except Exception:
+            pass
+
         return response

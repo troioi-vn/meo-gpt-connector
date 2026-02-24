@@ -1,0 +1,32 @@
+{% extends "admin/base.html" %}
+{% block title %}Meo GPT Admin — Dashboard{% endblock %}
+{% block content %}
+
+<section
+  hx-get="/admin/partials/stats"
+  hx-trigger="load, every 10s"
+  hx-indicator="#htmx-indicator">
+  <p style="color:#555">Loading stats…</p>
+</section>
+
+<section>
+  <h2>Recent Requests</h2>
+  <div
+    hx-get="/admin/partials/requests"
+    hx-trigger="load, every 5s"
+    hx-indicator="#htmx-indicator">
+    <p style="color:#555">Loading…</p>
+  </div>
+</section>
+
+<section>
+  <h2>Recent Errors</h2>
+  <div
+    hx-get="/admin/partials/errors"
+    hx-trigger="load, every 5s"
+    hx-indicator="#htmx-indicator">
+    <p style="color:#555">Loading…</p>
+  </div>
+</section>
+
+{% endblock %}

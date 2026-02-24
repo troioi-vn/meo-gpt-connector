@@ -1,0 +1,29 @@
+{% if events %}
+<table>
+  <thead>
+    <tr>
+      <th>Time</th>
+      <th>Method</th>
+      <th>Path</th>
+      <th>User</th>
+      <th>Status</th>
+      <th>ms</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for e in events %}
+    {% set cls = "ok" if e.status < 400 else ("warn" if e.status < 500 else "err") %}
+    <tr>
+      <td>{{ e.ts | int }}</td>
+      <td>{{ e.method }}</td>
+      <td>{{ e.path }}</td>
+      <td>{{ e.user_id or "—" }}</td>
+      <td class="{{ cls }}">{{ e.status }}</td>
+      <td>{{ e.latency_ms }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p style="color:#555">No events yet.</p>
+{% endif %}

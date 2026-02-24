@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://localhost:6379"
     LOG_LEVEL: str = "info"
     ENVIRONMENT: str = "production"
+    ADMIN_ENABLED: bool = False
+    ADMIN_PASSWORD: str = ""
 
     @field_validator("MAIN_APP_URL")
     @classmethod
