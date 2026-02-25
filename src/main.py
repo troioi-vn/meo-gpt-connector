@@ -6,7 +6,7 @@ from fastapi import FastAPI
 
 from src.core.config import get_settings
 from src.core.logging import RequestLoggingMiddleware, setup_logging
-from src.routers import admin, health, medical_records, oauth, pets, vaccinations, weights
+from src.routers import admin, health, medical_records, oauth, pets, public, vaccinations, weights
 from src.services.main_app import MainAppError, refresh_pet_types_cache
 
 
@@ -35,6 +35,7 @@ app = FastAPI(
 app.add_middleware(RequestLoggingMiddleware)
 
 app.include_router(health.router)
+app.include_router(public.router)
 app.include_router(admin.router)
 app.include_router(oauth.router)
 app.include_router(pets.router)

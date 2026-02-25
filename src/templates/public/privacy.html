@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Privacy Policy | Meo GPT Connector</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f7f9fc;
+        --card: #ffffff;
+        --text: #1c2434;
+        --muted: #4b5b78;
+        --line: #d9e0ee;
+        --accent: #1f6feb;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        color: var(--text);
+        background: linear-gradient(180deg, #eef3ff 0%, var(--bg) 45%, var(--bg) 100%);
+      }
+
+      .wrap {
+        max-width: 860px;
+        margin: 40px auto;
+        padding: 0 20px;
+      }
+
+      .card {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 28px;
+        box-shadow: 0 6px 20px rgba(28, 36, 52, 0.06);
+      }
+
+      h1 {
+        margin: 0 0 8px;
+        font-size: 2rem;
+      }
+
+      h2 {
+        margin-top: 28px;
+        font-size: 1.2rem;
+      }
+
+      p,
+      li {
+        color: var(--muted);
+        line-height: 1.6;
+      }
+
+      ul {
+        margin: 8px 0 0 20px;
+      }
+
+      .meta {
+        margin: 0 0 18px;
+        color: var(--muted);
+        font-size: 0.95rem;
+      }
+
+      a {
+        color: var(--accent);
+      }
+
+      code {
+        background: #eef3ff;
+        padding: 2px 6px;
+        border-radius: 6px;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="wrap">
+      <article class="card">
+        <h1>Privacy Policy</h1>
+        <p class="meta"><strong>Last updated:</strong> February 25, 2026</p>
+
+        <p>
+          This Privacy Policy explains how Meo GPT Connector (the "Connector") handles personal data when you use
+          the ChatGPT integration for Meo Mai Moi pet care services.
+        </p>
+
+        <h2>1. What this Connector does</h2>
+        <p>
+          The Connector allows ChatGPT to securely call Meo Mai Moi APIs on your behalf after you authorize access.
+          The Connector acts as a technical bridge and does not replace the core Meo Mai Moi application.
+        </p>
+
+        <h2>2. Data we process</h2>
+        <p>The Connector may process:</p>
+        <ul>
+          <li>Account identifiers needed to authenticate and authorize API requests.</li>
+          <li>Pet profile data and health records that you request through ChatGPT tools.</li>
+          <li>Technical request metadata such as endpoint path, response status, latency, and request IDs.</li>
+        </ul>
+
+        <h2>3. How data is used</h2>
+        <p>We process data only to:</p>
+        <ul>
+          <li>Authenticate you and issue short-lived access for ChatGPT actions.</li>
+          <li>Execute your requested pet-management actions.</li>
+          <li>Protect service security, rate-limit abuse, and debug operational issues.</li>
+        </ul>
+
+        <h2>4. Authentication and tokens</h2>
+        <p>
+          The Connector uses OAuth 2.0 Authorization Code flow and issues signed JWTs for ChatGPT. Tokens from the
+          main application are encrypted within JWT payloads and are not intentionally logged in plaintext.
+        </p>
+
+        <h2>5. Logging and security</h2>
+        <p>
+          The Connector is designed to avoid logging sensitive token values. Operational logs are limited to technical
+          metadata required for reliability and security monitoring.
+        </p>
+
+        <h2>6. Data sharing</h2>
+        <p>
+          Data is shared with Meo Mai Moi systems strictly to fulfill your requests. We do not sell personal data.
+          Third-party processors may be used for hosting, storage, and infrastructure operations.
+        </p>
+
+        <h2>7. Data retention</h2>
+        <p>
+          Data retention is determined by Meo Mai Moi operational and legal requirements. Connector-specific transient
+          session data (for example, OAuth state and authorization codes) is stored temporarily and expires quickly.
+        </p>
+
+        <h2>8. Your choices and rights</h2>
+        <p>
+          You may revoke Connector access at any time using the integration controls or by contacting Meo Mai Moi
+          support. Depending on your jurisdiction, you may also have rights to access, correct, or delete personal
+          data.
+        </p>
+
+        <h2>9. International transfers</h2>
+        <p>
+          Your information may be processed in countries other than your own, subject to appropriate safeguards where
+          required by applicable law.
+        </p>
+
+        <h2>10. Children</h2>
+        <p>
+          This service is intended for users who can lawfully manage their own accounts. If you believe personal data
+          was provided by a child without proper authorization, contact support to request review.
+        </p>
+
+        <h2>11. Changes to this policy</h2>
+        <p>
+          We may update this policy from time to time. Material changes will be reflected by updating the
+          <code>Last updated</code> date above.
+        </p>
+
+        <h2>12. Contact</h2>
+        <p>
+          For privacy questions or requests, contact Meo Mai Moi support through the official support channels of the
+          main application.
+        </p>
+      </article>
+    </main>
+  </body>
+</html>
