@@ -36,6 +36,7 @@ class CreatePetRequest(BaseModel):
     birth_date: date | None = Field(default=None, description="Exact birth date (YYYY-MM-DD). Use only when the exact full date is known.")
     birth_month_year: str | None = Field(default=None, description="Approximate birth month in YYYY-MM format. Use when only year and month are known.")
     age_months: int | None = Field(default=None, ge=0, le=600, description="Approximate age in whole months. Use as a last resort when no date is available.")
+    country: str | None = Field(default=None, min_length=2, max_length=2, description="2-letter ISO 3166-1 alpha-2 country code where the pet lives (e.g. 'VN', 'US', 'DE'). Required by the system — ask the user if not known from context.")
     description: str | None = Field(default=None, description="Optional free-text notes about the pet.")
     confirm_duplicate: bool = Field(default=False, description="Set to true only after the user explicitly confirms this is a new pet despite a DUPLICATE_WARNING response.")
 

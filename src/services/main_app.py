@@ -214,7 +214,7 @@ async def exchange_code(code: str, settings: Settings) -> dict[str, Any]:
                 "request_id": _request_id(),
             },
         )
-    return data
+    return data.get("data", data) if "data" in data else data
 
 
 async def revoke_token(sanctum_token: str, settings: Settings) -> None:

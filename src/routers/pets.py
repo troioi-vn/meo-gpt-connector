@@ -210,6 +210,7 @@ async def create_pet(
     upstream_payload: dict[str, Any] = {
         "name": payload.name,
         "pet_type_id": pet_type_id,
+        "country": payload.country,
         "description": payload.description,
     }
     sex_value = normalize_sex(payload.sex)
