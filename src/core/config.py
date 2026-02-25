@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     )
 
     MAIN_APP_URL: str
+    CONNECTOR_PUBLIC_URL: str = "http://localhost:8000"
     CONNECTOR_API_KEY: str
     OAUTH_CLIENT_ID: str = "meo-gpt"
     OAUTH_CLIENT_SECRET: str
@@ -29,6 +30,14 @@ class Settings(BaseSettings):
     @classmethod
     def strip_trailing_slash(cls, v: str) -> str:
         return v.rstrip("/")
+
+    @field_validator("CONNECTOR_PUBLIC_URL")
+    @classmethod
+    def validate_connector_public_url(cls, v: str) -> str:
+        value = v.rstrip("/")
+        if not (value.startswith("http://") or value.startswith("https://")):
+            raise ValueError("CONNECTOR_PUBLIC_URL must start with http:// or https://")
+        return value
 
     @field_validator("ENCRYPTION_KEY")
     @classmethod

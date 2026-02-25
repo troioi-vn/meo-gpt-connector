@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+import os
 from typing import AsyncGenerator
 
 from fastapi import FastAPI
@@ -20,10 +21,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     yield
 
 
+def _openapi_server_url() -> str:
+    return os.getenv("CONNECTOR_PUBLIC_URL", "http://localhost:8000").rstrip("/")
+
 app = FastAPI(
     title="Meo GPT Connector",
     description="ChatGPT Custom GPT connector for Meo Mai Moi pet care platform.",
     version="0.1.0",
+    servers=[{"url": _openapi_server_url()}],
     lifespan=lifespan,
 )
 
