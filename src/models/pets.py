@@ -29,6 +29,45 @@ class PetFindResponse(BaseModel):
     candidates: list[PetSummary] = Field(description="Matched pets. If 1 result: use it. If 0: tell user no pet was found. If multiple: list them and ask the user to choose.")
 
 
+class PetsOverviewRequest(BaseModel):
+    species: str | None = Field(
+        default=None,
+        min_length=1,
+        description="Optional species filter (e.g. 'cat', 'dog'). Use this when the user asks about only one species.",
+    )
+    name: str | None = Field(
+        default=None,
+        min_length=1,
+        description="Optional partial pet-name filter (case-insensitive).",
+    )
+    only_with_upcoming_vaccination: bool = Field(
+        default=False,
+        description="Set true when the user asks for pets that have an upcoming vaccination date.",
+    )
+    sort_by: Literal["name", "next_vaccination_due_at"] = Field(
+        default="name",
+        description="Sort field. Use next_vaccination_due_at for requests like 'which cat is due next'.",
+    )
+    sort_order: Literal["asc", "desc"] = Field(
+        default="asc",
+        description="Sort order. Use asc for soonest due first, desc for latest due first.",
+    )
+
+
+class PetOverviewItem(PetSummary):
+    next_vaccination_due_at: date | None = Field(
+        default=None,
+        description="Earliest vaccination due date that is today or in the future. Null if unavailable.",
+    )
+    next_vaccination_name: str | None = Field(
+        default=None,
+        description="Vaccine name for next_vaccination_due_at, if available.",
+    )
+    vaccination_data_status: Literal["available", "unavailable"] = Field(
+        description="Whether vaccination history was successfully loaded for this pet.",
+    )
+
+
 class CreatePetRequest(BaseModel):
     name: str = Field(min_length=1, description="Pet's name exactly as the user stated it.")
     species: str = Field(min_length=1, description="Species in plain text (e.g. 'cat', 'dog', 'rabbit'). Will be mapped to an internal ID.")

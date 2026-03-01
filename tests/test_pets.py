@@ -59,6 +59,91 @@ def test_find_pets_returns_multiple_candidates(client):
 
 
 @respx.mock
+def test_pets_overview_filters_and_sorts_by_next_vaccination_due_at(client):
+    respx.get("http://test-main-app/api/pet-types").mock(
+        return_value=httpx.Response(200, json=[{"id": 1, "name": "dog"}, {"id": 2, "name": "cat"}])
+    )
+    respx.get("http://test-main-app/api/my-pets").mock(
+        return_value=httpx.Response(
+            200,
+            json=[
+                {"id": 1, "name": "Mimi", "pet_type_id": 2, "sex": "female"},
+                {"id": 2, "name": "Bun", "pet_type_id": 1, "sex": "male"},
+                {"id": 3, "name": "Coco", "pet_type_id": 2, "sex": "female"},
+            ],
+        )
+    )
+    respx.get("http://test-main-app/api/pets/1/vaccinations").mock(
+        return_value=httpx.Response(
+            200,
+            json=[
+                {"id": 100, "vaccine_name": "FVRCP", "due_at": "2099-01-10"},
+                {"id": 101, "vaccine_name": "Rabies", "due_at": "2099-01-05"},
+            ],
+        )
+    )
+    respx.get("http://test-main-app/api/pets/3/vaccinations").mock(
+        return_value=httpx.Response(
+            200,
+            json=[
+                {"id": 102, "vaccine_name": "FVRCP", "due_at": "2099-01-03"},
+            ],
+        )
+    )
+
+    resp = client.post(
+        "/pets/overview",
+        json={
+            "species": "cat",
+            "sort_by": "next_vaccination_due_at",
+            "sort_order": "asc",
+            "only_with_upcoming_vaccination": True,
+        },
+        headers=_auth_headers(),
+    )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert [item["name"] for item in data] == ["Coco", "Mimi"]
+    assert data[0]["next_vaccination_due_at"] == "2099-01-03"
+    assert data[1]["next_vaccination_due_at"] == "2099-01-05"
+    assert data[1]["next_vaccination_name"] == "Rabies"
+    assert all(item["vaccination_data_status"] == "available" for item in data)
+
+
+@respx.mock
+def test_pets_overview_keeps_partial_results_when_one_pet_vaccinations_fail(client):
+    respx.get("http://test-main-app/api/my-pets").mock(
+        return_value=httpx.Response(
+            200,
+            json=[
+                {"id": 1, "name": "Mimi", "pet_type_id": 2},
+                {"id": 2, "name": "Bun", "pet_type_id": 1},
+            ],
+        )
+    )
+    respx.get("http://test-main-app/api/pets/1/vaccinations").mock(
+        return_value=httpx.Response(
+            200,
+            json=[{"id": 100, "vaccine_name": "Rabies", "due_at": "2099-02-01"}],
+        )
+    )
+    respx.get("http://test-main-app/api/pets/2/vaccinations").mock(
+        return_value=httpx.Response(500, json={"message": "Temporary failure"})
+    )
+
+    resp = client.post("/pets/overview", json={}, headers=_auth_headers())
+
+    assert resp.status_code == 200
+    data = resp.json()
+    by_name = {item["name"]: item for item in data}
+    assert by_name["Mimi"]["vaccination_data_status"] == "available"
+    assert by_name["Mimi"]["next_vaccination_due_at"] == "2099-02-01"
+    assert by_name["Bun"]["vaccination_data_status"] == "unavailable"
+    assert by_name["Bun"]["next_vaccination_due_at"] is None
+
+
+@respx.mock
 def test_create_pet_duplicate_warning(client):
     respx.get("http://test-main-app/api/pet-types").mock(
         return_value=httpx.Response(200, json=[{"id": 2, "name": "cat"}])

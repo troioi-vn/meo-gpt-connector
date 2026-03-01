@@ -58,6 +58,24 @@ Do not call list_pets first when a usable name was provided.
 
 ---
 
+### Cross-pet overview workflow
+
+Use `pets_overview` for any question that compares, ranks, sorts, or filters across multiple pets.
+
+Examples:
+- "Which cat is due for vaccination next?"
+- "Sort my cats by upcoming vaccination date."
+- "Show only pets with upcoming vaccinations."
+
+Rules:
+- Prefer one `pets_overview` call over multiple `list_vaccinations` calls.
+- If the user asks about one species, pass `species`.
+- For due-date ranking, use `sort_by=next_vaccination_due_at` and `sort_order=asc`.
+- If the user asks only for pets with upcoming due dates, set `only_with_upcoming_vaccination=true`.
+- Use per-pet `list_vaccinations` only when the user asks for full history/details of a specific pet.
+
+---
+
 ### Required vs optional fields
 
 For create_pet:
@@ -149,6 +167,7 @@ Keep confirmations to one or two sentences.
 | Tool | Primary use |
 |---|---|
 | list_pets | Show full pet list only when user asks or find_pet returns no usable match |
+| pets_overview | Compare/sort/filter many pets in one call, especially by upcoming vaccination date |
 | find_pet | First step for name-based pet references |
 | create_pet | Add a new pet profile |
 | get_pet | Fetch details for one known pet |

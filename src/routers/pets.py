@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import asyncio
 import uuid
+from datetime import date
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query
@@ -12,6 +14,8 @@ from src.models.pets import (
     CreatePetRequest,
     PetFindRequest,
     PetFindResponse,
+    PetOverviewItem,
+    PetsOverviewRequest,
     PetSummary,
     PetTypeItem,
     UpdatePetRequest,
@@ -55,6 +59,18 @@ def _extract_list(data: Any) -> list[dict[str, Any]]:
     return []
 
 
+def _parse_iso_date(raw: Any) -> date | None:
+    if not isinstance(raw, str):
+        return None
+    value = raw.strip()
+    if not value:
+        return None
+    try:
+        return date.fromisoformat(value[:10])
+    except ValueError:
+        return None
+
+
 async def _load_pets(current_token: tuple[int, str], settings: Settings) -> list[dict[str, Any]]:
     _, sanctum_token = current_token
     raw = await call_main_app(
@@ -65,6 +81,37 @@ async def _load_pets(current_token: tuple[int, str], settings: Settings) -> list
     )
     species_by_type_id = get_species_name_by_pet_type_id()
     return [to_pet_summary(item, species_by_type_id) for item in _extract_list(raw)]
+
+
+async def _load_pet_next_vaccination_due(
+    pet_id: int,
+    sanctum_token: str,
+    settings: Settings,
+) -> tuple[date | None, str | None, str]:
+    try:
+        raw = await call_main_app(
+            method="GET",
+            path=f"/api/pets/{pet_id}/vaccinations",
+            settings=settings,
+            sanctum_token=sanctum_token,
+        )
+    except MainAppError:
+        return None, None, "unavailable"
+
+    today = date.today()
+    upcoming: list[tuple[date, str | None]] = []
+    for item in _extract_list(raw):
+        due_at = _parse_iso_date(item.get("due_at"))
+        if due_at is None or due_at < today:
+            continue
+        vaccine_name = item.get("vaccine_name")
+        upcoming.append((due_at, vaccine_name if isinstance(vaccine_name, str) else None))
+
+    if not upcoming:
+        return None, None, "available"
+
+    due_at, vaccine_name = min(upcoming, key=lambda value: value[0])
+    return due_at, vaccine_name, "available"
 
 
 @router.get(
@@ -103,6 +150,95 @@ async def list_pets(
         return JSONResponse(status_code=exc.status_code, content=exc.payload)
 
     return filter_pet_candidates(pets, name=name, species=species)
+
+
+@router.post(
+    "/pets/overview",
+    operation_id="pets_overview",
+    response_model=list[PetOverviewItem],
+    description=(
+        "Return many pets with computed next vaccination due dates in one call. "
+        "Use this tool for cross-pet comparisons, filtering, or sorting (for example: "
+        "'sort cats by upcoming vaccination date'). Do not call vaccinations per pet when "
+        "this overview can answer the request."
+    ),
+)
+async def pets_overview(
+    payload: PetsOverviewRequest,
+    current_token: Annotated[tuple[int, str], Depends(get_current_token)],
+    settings: Settings = Depends(get_settings),
+) -> Any:
+    _, sanctum_token = current_token
+    if payload.species and not get_species_name_by_pet_type_id():
+        try:
+            await refresh_pet_types_cache(settings)
+        except MainAppError as exc:
+            return JSONResponse(status_code=exc.status_code, content=exc.payload)
+
+    try:
+        pets = await _load_pets(current_token, settings)
+    except MainAppError as exc:
+        return JSONResponse(status_code=exc.status_code, content=exc.payload)
+
+    filtered = filter_pet_candidates(pets, name=payload.name, species=payload.species)
+    vaccination_items = await asyncio.gather(
+        *[
+            _load_pet_next_vaccination_due(
+                pet_id=int(pet["id"]),
+                sanctum_token=sanctum_token,
+                settings=settings,
+            )
+            for pet in filtered
+            if pet.get("id") is not None
+        ]
+    )
+
+    by_pet_id: dict[int, tuple[date | None, str | None, str]] = {}
+    for pet, summary in zip([pet for pet in filtered if pet.get("id") is not None], vaccination_items, strict=False):
+        by_pet_id[int(pet["id"])] = summary
+
+    items: list[dict[str, Any]] = []
+    for pet in filtered:
+        pet_id = pet.get("id")
+        due_at: date | None = None
+        vaccine_name: str | None = None
+        status = "unavailable"
+        if isinstance(pet_id, int):
+            due_at, vaccine_name, status = by_pet_id.get(pet_id, (None, None, "unavailable"))
+
+        item = {
+            **pet,
+            "next_vaccination_due_at": due_at,
+            "next_vaccination_name": vaccine_name,
+            "vaccination_data_status": status,
+        }
+        items.append(item)
+
+    if payload.only_with_upcoming_vaccination:
+        items = [item for item in items if item["next_vaccination_due_at"] is not None]
+
+    if payload.sort_by == "next_vaccination_due_at":
+        if payload.sort_order == "asc":
+            items.sort(
+                key=lambda item: (
+                    item["next_vaccination_due_at"] is None,
+                    item["next_vaccination_due_at"] or date.max,
+                    str(item.get("name", "")).lower(),
+                )
+            )
+        else:
+            items.sort(
+                key=lambda item: (
+                    item["next_vaccination_due_at"] is not None,
+                    item["next_vaccination_due_at"] or date.min,
+                    str(item.get("name", "")).lower(),
+                ),
+                reverse=True,
+            )
+    else:
+        items.sort(key=lambda item: str(item.get("name", "")).lower(), reverse=payload.sort_order == "desc")
+
+    return items
 
 
 @router.get(

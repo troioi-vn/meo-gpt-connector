@@ -34,14 +34,14 @@ Edit `pyproject.toml`:
 
 ```toml
 [project]
-version = "0.2.0"
+version = "0.2.1"
 ```
 
 Commit on `dev`:
 
 ```bash
 git add pyproject.toml
-git commit -m "chore(release): bump version to v0.2.0"
+git commit -m "chore(release): bump version to v0.2.1"
 ```
 
 ### 3. Merge `dev` into `main`
@@ -50,7 +50,7 @@ Use `--no-ff` to create a merge commit so the release boundary is visible in his
 
 ```bash
 git checkout main
-git merge --no-ff dev -m "Merge dev into main for v0.2.0 release"
+git merge --no-ff dev -m "Merge dev into main for v0.2.1 release"
 ```
 
 ### 4. Tag the release
@@ -58,7 +58,7 @@ git merge --no-ff dev -m "Merge dev into main for v0.2.0 release"
 Create an annotated tag on `main`:
 
 ```bash
-git tag -a v0.2.0 -m "v0.2.0 - Brief description of what's in this release"
+git tag -a v0.2.1 -m "v0.2.1 - Add pets_overview bulk tool and GPT routing guidance"
 ```
 
 ### 5. Push
@@ -67,7 +67,7 @@ Push the branch and the tag separately:
 
 ```bash
 git push origin main
-git push origin v0.2.0
+git push origin v0.2.1
 ```
 
 ### 6. Create GitHub release
@@ -75,8 +75,8 @@ git push origin v0.2.0
 Publish a GitHub release for the tag:
 
 ```bash
-gh release create v0.2.0 \
-  --title "v0.2.0" \
+gh release create v0.2.1 \
+  --title "v0.2.1" \
   --generate-notes
 ```
 
@@ -95,18 +95,26 @@ git push origin dev
 ```bash
 # Check version is correct on the running connector
 curl -f https://gpt.troioi.vn/health
-# Expect: {"status": "ok", "version": "0.2.0", "main_app_reachable": true}
+# Expect: {"status": "ok", "version": "0.2.1", "main_app_reachable": true}
 ```
 
 ## Viewing changes between releases
 
 ```bash
 # Summary of commits between two releases
-git log --oneline v0.1.0..v0.2.0
+git log --oneline v0.2.0..v0.2.1
 
 # Full diff between releases
-git diff v0.1.0..v0.2.0
+git diff v0.2.0..v0.2.1
 
 # All releases
 git tag -l 'v*'
 ```
+
+## v0.2.1 release notes
+
+- Added `POST /pets/overview` as a bulk GPT tool for cross-pet filtering/sorting.
+- Added computed fields in overview response:
+  `next_vaccination_due_at`, `next_vaccination_name`, and `vaccination_data_status`.
+- Added GPT routing guidance to prefer `pets_overview` for ranking/comparison requests
+  instead of per-pet vaccination loops.
