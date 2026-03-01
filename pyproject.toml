@@ -1,6 +1,6 @@
 [project]
 name = "meo-gpt-connector"
-version = "0.1.0"
+version = "0.2.0"
 description = "ChatGPT Custom GPT connector for Meo Mai Moi pet care platform"
 requires-python = ">=3.12"
 dependencies = [

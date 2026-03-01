@@ -18,7 +18,9 @@ dev     — integration branch, features merge here first
 feature/... — short-lived feature branches off dev
 ```
 
-Never commit directly to `main`. All work goes through `dev` first.
+Preferred: never commit directly to `main`; all work goes through `dev` first.
+If the repo is temporarily running without a `dev` branch, cut the release from `main`
+and re-introduce `dev` afterward.
 
 ## How to release a new version
 
@@ -68,7 +70,17 @@ git push origin main
 git push origin v0.2.0
 ```
 
-### 6. Sync `dev` with `main`
+### 6. Create GitHub release
+
+Publish a GitHub release for the tag:
+
+```bash
+gh release create v0.2.0 \
+  --title "v0.2.0" \
+  --generate-notes
+```
+
+### 7. Sync `dev` with `main`
 
 Keep dev aligned so it includes the merge commit:
 
@@ -78,7 +90,7 @@ git merge main --ff-only
 git push origin dev
 ```
 
-### 7. Verify
+### 8. Verify
 
 ```bash
 # Check version is correct on the running connector
