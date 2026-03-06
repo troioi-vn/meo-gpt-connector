@@ -1,9 +1,17 @@
 {% if events %}
+<p style="color:#666; margin:0 0 0.6rem;">
+  User/Input: <span class="warn">{{ user_error_count }}</span>
+  |
+  Upstream: <span class="err">{{ upstream_error_count }}</span>
+  |
+  Connector: <span class="err">{{ connector_error_count }}</span>
+</p>
 <table>
   <thead>
     <tr>
       <th>Time</th>
       <th>User</th>
+      <th>Category</th>
       <th>Method</th>
       <th>Path</th>
       <th>Status</th>
@@ -16,6 +24,7 @@
     <tr>
       <td>{{ e.ts | int }}</td>
       <td>{{ e.user_id or "—" }}</td>
+      <td>{{ e.error_category_label }}</td>
       <td>{{ e.method }}</td>
       <td>{{ e.path }}</td>
       <td class="{{ cls }}">{{ e.status }}</td>

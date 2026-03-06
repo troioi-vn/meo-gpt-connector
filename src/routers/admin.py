@@ -1,6 +1,7 @@
 import base64
 import secrets
 from pathlib import Path
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse
@@ -17,6 +18,30 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 _TOOL_PATH_PREFIXES = ["/pets", "/pet-types"]
 _AUTH_PATH_PREFIXES = ["/oauth/"]
 _CONNECTOR_ERROR_PATH_PREFIXES = [*_TOOL_PATH_PREFIXES, *_AUTH_PATH_PREFIXES, "/health"]
+_USER_ERROR_STATUSES = {400, 401, 403, 404, 409, 422, 429}
+_UPSTREAM_ERROR_STATUSES = {502, 503, 504}
+
+
+def _classify_error(event: dict[str, Any]) -> dict[str, Any]:
+    status = int(event.get("status") or 0)
+
+    if status in _UPSTREAM_ERROR_STATUSES:
+        category = "upstream"
+        label = "Upstream"
+    elif status >= 500:
+        category = "connector"
+        label = "Connector"
+    elif status in _USER_ERROR_STATUSES:
+        category = "user"
+        label = "User/Input"
+    else:
+        category = "other"
+        label = "Other"
+
+    enriched = dict(event)
+    enriched["error_category"] = category
+    enriched["error_category_label"] = label
+    return enriched
 
 
 async def _require_admin(request: Request, settings: Settings = Depends(get_settings)) -> None:
@@ -61,13 +86,23 @@ async def admin_requests(request: Request) -> HTMLResponse:
 
 @router.get("/partials/errors", response_class=HTMLResponse, dependencies=[Depends(_require_admin)])
 async def admin_errors(request: Request) -> HTMLResponse:
-    events = await get_recent(
+    raw_events = await get_recent(
         n=50,
         errors_only=True,
         skip_admin=True,
         include_paths=_CONNECTOR_ERROR_PATH_PREFIXES,
     )
-    return templates.TemplateResponse(request, "admin/partials/errors.html", {"events": events})
+    events = [_classify_error(event) for event in raw_events]
+    return templates.TemplateResponse(
+        request,
+        "admin/partials/errors.html",
+        {
+            "events": events,
+            "user_error_count": sum(1 for event in events if event["error_category"] == "user"),
+            "upstream_error_count": sum(1 for event in events if event["error_category"] == "upstream"),
+            "connector_error_count": sum(1 for event in events if event["error_category"] == "connector"),
+        },
+    )
 
 
 @router.get("/partials/auth", response_class=HTMLResponse, dependencies=[Depends(_require_admin)])
