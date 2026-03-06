@@ -16,6 +16,7 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 
 _TOOL_PATH_PREFIXES = ["/pets", "/pet-types"]
 _AUTH_PATH_PREFIXES = ["/oauth/"]
+_CONNECTOR_ERROR_PATH_PREFIXES = [*_TOOL_PATH_PREFIXES, *_AUTH_PATH_PREFIXES, "/health"]
 
 
 async def _require_admin(request: Request, settings: Settings = Depends(get_settings)) -> None:
@@ -60,7 +61,12 @@ async def admin_requests(request: Request) -> HTMLResponse:
 
 @router.get("/partials/errors", response_class=HTMLResponse, dependencies=[Depends(_require_admin)])
 async def admin_errors(request: Request) -> HTMLResponse:
-    events = await get_recent(n=50, errors_only=True, skip_admin=True)
+    events = await get_recent(
+        n=50,
+        errors_only=True,
+        skip_admin=True,
+        include_paths=_CONNECTOR_ERROR_PATH_PREFIXES,
+    )
     return templates.TemplateResponse(request, "admin/partials/errors.html", {"events": events})
 
 
@@ -83,7 +89,12 @@ async def admin_stats(request: Request) -> HTMLResponse:
         signal_events = await get_recent(n=500, skip_admin=True)
         tool_events = await get_recent(n=200, include_paths=_TOOL_PATH_PREFIXES, skip_admin=True)
         auth_events = await get_recent(n=200, include_paths=_AUTH_PATH_PREFIXES, skip_admin=True)
-        recent_errors = await get_recent(n=50, errors_only=True, skip_admin=True)
+        recent_errors = await get_recent(
+            n=50,
+            errors_only=True,
+            skip_admin=True,
+            include_paths=_CONNECTOR_ERROR_PATH_PREFIXES,
+        )
     except Exception:
         pass
 
