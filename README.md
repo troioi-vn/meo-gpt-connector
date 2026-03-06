@@ -13,8 +13,10 @@ This project serves the same mission as Meo Mai Moi: helping people care for the
 ## What it does
 
 **For users:**
-- Connect Meo Mai Moi account to ChatGPT with a OAuth flow.
+- Connect Meo Mai Moi account to ChatGPT with an OAuth flow.
 - New users can register during the flow — no invitation code required.
+- For new accounts, the GPT should ask which email the user wants to use before sending them into the Connect flow.
+- If the main app requires email verification, protected pet tools will not work until the user verifies that email.
 - Create pets, add vaccination records, log medical events, track weights — all by chatting.
 - Ask questions: "Who has the closest birthday?" "What vaccinations are due next month?"
 - Bulk entry from a photo: "Here's a photo of today's weight session" → ChatGPT reads it, connector stores it.
@@ -40,6 +42,14 @@ flowchart TD
 ```
 
 **Auth in one sentence:** ChatGPT redirects the user to the main app's consent page, the main app returns a Sanctum token, the connector wraps it in a signed JWT and hands it to ChatGPT. Every subsequent action call includes that JWT; the connector decrypts the Sanctum token and forwards it.
+
+## Upstream Contract Notes
+
+The connector now depends on the main app's explicit generic PAT ability contract for core programmatic routes. Exchanged Sanctum tokens must remain usable with generic abilities such as `create`, `read`, `update`, and `delete`, because connector flows call protected upstream routes like `GET /api/my-pets` and `POST /api/pets`.
+
+Health read endpoints are a deliberate exception in the current slice. Routes like `GET /api/pets/{pet}/weights`, `GET /api/pets/{pet}/medical-records`, and `GET /api/pets/{pet}/vaccinations` remain public or optional-auth upstream, so the connector should not document them as PAT-gated unless the main app contract changes.
+
+Upstream `429` responses are also preserved intentionally now. The connector returns `429` to the caller and keeps any safe upstream quota metadata instead of collapsing the error into a generic `502`.
 
 ## Stack
 
@@ -74,13 +84,14 @@ docker compose up --build
 pytest   # all tests, no live services needed
 ```
 
-Of course, you also should have the [main app](htttp://github.com/troioi-vn/meo-mai-moi) running locally to test the full flow.
+Of course, you also should have the [main app](http://github.com/troioi-vn/meo-mai-moi) running locally to test the full flow.
 
 ## Key documents
 
 | Document | Purpose |
 |---|---|
 | [`docs/install.md`](docs/install.md) | Dev setup, running locally, Docker, tests, common issues |
+| [`docs/gpt-system-prompt.md`](docs/gpt-system-prompt.md) | Current Custom GPT instruction baseline, including the new-account email collection flow |
 | [`docs/release.md`](docs/release.md) | Release process: versioning, git tags, branching |
 
 ## Related

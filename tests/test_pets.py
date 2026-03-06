@@ -199,3 +199,32 @@ def test_upstream_422_is_normalized(client):
     data = resp.json()
     assert data["error"] == "VALIDATION_ERROR"
     assert data["fields"][0]["name"] == "name"
+
+
+@respx.mock
+def test_upstream_429_preserves_quota_metadata(client):
+    respx.get("http://test-main-app/api/my-pets").mock(
+        return_value=httpx.Response(
+            429,
+            json={
+                "message": "Daily API quota exceeded.",
+                "data": {
+                    "error_code": "API_DAILY_QUOTA_EXCEEDED",
+                    "quota": {
+                        "limit": 1000,
+                        "remaining": 0,
+                        "reset_at_utc": "2026-03-07T00:00:00Z",
+                    },
+                },
+            },
+        )
+    )
+
+    resp = client.get("/pets", headers=_auth_headers())
+
+    assert resp.status_code == 429
+    data = resp.json()
+    assert data["error"] == "RATE_LIMITED"
+    assert data["upstream_error_code"] == "API_DAILY_QUOTA_EXCEEDED"
+    assert data["quota"]["remaining"] == 0
+    assert data["quota"]["reset_at_utc"] == "2026-03-07T00:00:00Z"

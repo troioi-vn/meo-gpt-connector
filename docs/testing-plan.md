@@ -9,6 +9,8 @@ Two test types:
 2. **Integration tests** — run the connector against a real Meo Mai Moi instance
    running locally in Docker. Validate end-to-end behavior against a live API.
 
+A key regression to keep in this suite: an exchanged Sanctum token is not "good" just because the connector can mint a JWT from it. Tests must also prove that the exchanged token can still use the main app's PAT-gated routes, especially `GET /api/my-pets` and at least one protected write such as `POST /api/pets`.
+
 Unit tests run in CI on every push. Integration tests run locally on demand and as
 a pre-merge gate on `dev → main`.
 
@@ -127,7 +129,8 @@ shapes. Uses `respx` to return canned responses.
 | 404 `{"message": "Not found"}` | `NOT_FOUND` | 404 |
 | 422 with `errors` dict | `VALIDATION_ERROR` with `fields` | 422 |
 | 401 | `UNAUTHORIZED` | 401 |
-| 429 | `UPSTREAM_ERROR` | 502 |
+| 429 rate limit | `RATE_LIMITED` | 429 |
+| 429 daily quota | `RATE_LIMITED` with upstream quota metadata | 429 |
 | 500 | `UPSTREAM_ERROR` | 502 |
 | network timeout (httpx.TimeoutException) | `UPSTREAM_ERROR` | 502 |
 | connection refused | `UPSTREAM_ERROR` | 502 |
@@ -194,6 +197,9 @@ Simulates the OAuth2 flow using httpx following redirects manually:
 
 5. GET /pets with returned JWT
    Assert: 200 (valid auth works)
+
+6. Use the returned JWT on a protected connector flow
+   Assert: upstream `GET /api/my-pets` and `POST /api/pets` both succeed, proving the exchanged Sanctum token still satisfies the generic PAT contract.
 ```
 
 New user path:
@@ -223,6 +229,7 @@ New user path:
 | Get detail | `GET /pets/{id}` | 200, full pet data including health summary |
 | Update | `PATCH /pets/{id} {name:"NewName"}` | 200, updated name in response |
 | Unknown species | `POST /pets` with `species:"dragon"` | 422 `VALIDATION_ERROR` |
+| Upstream quota denial | mocked `GET /api/my-pets` returns `429` with quota metadata | connector returns `429 RATE_LIMITED` and preserves quota info |
 
 ### `test_vaccinations.py`
 
@@ -309,3 +316,5 @@ python scripts/simulate_oauth_flow.py \
 ```
 
 This validates `authorize -> confirm -> callback -> token` and confirms the issued token can call connector tools.
+
+When manually exercising the signup branch, expect a second variable in the outcome: upstream email-verification policy. If email verification is enabled in Meo Mai Moi, a freshly registered GPT user may complete OAuth successfully but still be blocked from protected pet routes until the email is verified.

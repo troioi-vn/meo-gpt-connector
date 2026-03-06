@@ -28,6 +28,8 @@ and re-introduce `dev` afterward.
 
 All features for the release are merged into `dev`. Tests pass. Docker build succeeds.
 
+Before cutting a release that depends on upstream auth or route behavior, verify the connector against the current Meo Mai Moi backend contract. In particular, confirm that exchanged Sanctum tokens still carry the generic PAT abilities needed for protected programmatic routes such as `GET /api/my-pets` and `POST /api/pets`.
+
 ### 2. Bump the version on `dev`
 
 Edit `pyproject.toml`:
@@ -97,6 +99,13 @@ git push origin dev
 curl -f https://gpt.troioi.vn/health
 # Expect: {"status": "ok", "version": "0.2.1", "main_app_reachable": true}
 ```
+
+For releases that touch upstream auth/error handling, also do one small live proof against the current backend:
+
+- complete the OAuth exchange
+- call a PAT-gated read through the connector (`GET /pets` -> upstream `GET /api/my-pets`)
+- call a PAT-gated write through the connector (`POST /pets` -> upstream `POST /api/pets`)
+- confirm upstream `429` responses still surface as connector `429` with any quota metadata preserved
 
 ## Viewing changes between releases
 

@@ -253,6 +253,76 @@ def test_token_success(client):
     assert sanctum_token == "sanctum-tok"
 
 
+@respx.mock
+def test_exchanged_token_can_use_pat_protected_upstream_routes(client):
+    session_data = json.dumps({
+        "state": "abc123",
+        "redirect_uri": "https://chatgpt.com/aip/oauth/callback",
+    })
+    store, fns = _make_stateful_redis()
+    store["oauth:session:sess-pat"] = session_data
+
+    respx.post("http://test-main-app/api/gpt-auth/exchange").mock(
+        return_value=httpx.Response(200, json={"sanctum_token": "pat-compatible-token", "user_id": 42})
+    )
+    list_route = respx.get("http://test-main-app/api/my-pets").mock(
+        return_value=httpx.Response(200, json=[])
+    )
+    respx.get("http://test-main-app/api/pet-types").mock(
+        return_value=httpx.Response(200, json=[{"id": 2, "name": "cat"}])
+    )
+    create_route = respx.post("http://test-main-app/api/pets").mock(
+        return_value=httpx.Response(201, json={"id": 88, "name": "PAT Proof"})
+    )
+
+    with (
+        patch("src.core.redis.get", side_effect=fns["get"]),
+        patch("src.core.redis.delete", side_effect=fns["delete"]),
+        patch("src.core.redis.set_with_ttl", side_effect=fns["set_with_ttl"]),
+        patch("src.core.redis.get_and_delete", side_effect=fns["get_and_delete"]),
+    ):
+        callback_resp = client.get(
+            "/oauth/callback",
+            params={"session_id": "sess-pat", "code": "main-app-code"},
+            follow_redirects=False,
+        )
+        assert callback_resp.status_code == 302
+
+        redirected_code = parse_qs(urlparse(callback_resp.headers["location"]).query)["code"][0]
+        token_resp = client.post(
+            "/oauth/token",
+            data={
+                "client_id": "meo-gpt",
+                "client_secret": "test-client-secret",
+                "grant_type": "authorization_code",
+                "code": redirected_code,
+            },
+        )
+
+    assert token_resp.status_code == 200
+    access_token = token_resp.json()["access_token"]
+    auth_headers = {"Authorization": f"Bearer {access_token}"}
+
+    list_resp = client.get("/pets", headers=auth_headers)
+    assert list_resp.status_code == 200
+
+    create_resp = client.post(
+        "/pets",
+        json={
+            "name": "PAT Proof",
+            "species": "cat",
+            "country": "VN",
+        },
+        headers=auth_headers,
+    )
+    assert create_resp.status_code == 201
+    assert create_resp.json()["id"] == 88
+    assert list_route.called
+    assert create_route.called
+    assert list_route.calls[0].request.headers["Authorization"] == "Bearer pat-compatible-token"
+    assert create_route.calls[0].request.headers["Authorization"] == "Bearer pat-compatible-token"
+
+
 def test_token_invalid_client_secret(client):
     resp = client.post(
         "/oauth/token",

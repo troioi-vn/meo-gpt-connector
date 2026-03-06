@@ -136,6 +136,8 @@ Expected response:
 
 `main_app_reachable: false` is normal if `MAIN_APP_URL` isn't a live server — the connector still starts fine.
 
+For a real local OAuth proof, use a verified main-app user unless you explicitly want to test the signup path. If the main app has email verification enabled, freshly registered GPT users may authenticate successfully but still be blocked from PAT-gated pet routes until they verify their email.
+
 ---
 
 ## 6. Run tests
@@ -179,7 +181,7 @@ src/
 │   ├── oauth.py         # /oauth/authorize, /callback, /token, /revoke (task 03)
 │   ├── pets.py          # /pets, /pets/{id}                          (task 05)
 │   ├── vaccinations.py  # /pets/{id}/vaccinations                    (task 06)
-│   ├── medical.py       # /pets/{id}/medical-records                 (task 06)
+│   ├── medical_records.py  # /pets/{id}/medical-records              (task 06)
 │   └── weights.py       # /pets/{id}/weights                         (task 06)
 ├── services/
 │   └── main_app.py      # httpx client for main app calls            (task 05)
@@ -211,6 +213,12 @@ Tests mock both the main app and Redis — they should never connect to either. 
 
 **`main_app_reachable: false` in health response**
 The connector couldn't reach `MAIN_APP_URL/api/version`. This is non-fatal — the connector runs normally. Point `MAIN_APP_URL` at a live Meo Mai Moi instance if you need the full OAuth flow.
+
+**OAuth succeeds but `GET /pets` returns `401`, `403`, or `502` during local signup testing**
+Check whether the newly created main-app user is still unverified. When email verification is enabled upstream, the OAuth bridge can succeed before the user is allowed to use protected pet routes. Verify the email first, then reconnect.
+
+**Upstream rate limit errors look different now**
+This is expected. Main-app `429` responses now stay `429` in the connector and may include upstream quota metadata such as reset time, instead of being normalized to a generic `502`.
 
 **`MAIN_APP_URL=http://localhost:8000` doesn't work inside Docker**
 Inside a Docker container, `localhost` is the container itself — not your host machine. Use `http://host.docker.internal:8000` instead (works on Docker Desktop / Linux with `extra_hosts`), or point at the real deployed URL.
@@ -286,6 +294,12 @@ This script:
 - optionally verifies the issued access token with connector `GET /pets`.
 
 It prints a compact JSON trace of each step with status codes.
+
+For manual GPT onboarding testing, remember the intended conversation flow:
+- if the user already has an account, the GPT should tell them to use Connect Account and sign in on the Meo Mai Moi page
+- if they need a new account, the GPT should ask which email they want to use before sending them into Connect Account
+- the GPT should not ask for passwords in chat
+- if email verification is enabled, the GPT should warn that protected pet tools may require email verification before they work
 
 If `confirm` returns `Invalid session signature`, make sure connector `HMAC_SHARED_SECRET`
 and main app `GPT_CONNECTOR_HMAC_SECRET` are exactly the same value.

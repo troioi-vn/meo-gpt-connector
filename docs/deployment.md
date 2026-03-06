@@ -261,6 +261,8 @@ Expected:
 `main_app_reachable: false` means the connector cannot reach `MAIN_APP_URL` — check the URL
 and that the main app is running.
 
+When validating the signup path in production or staging, remember that a newly created GPT user may still need to verify their email before PAT-gated pet routes such as `GET /pets` or `POST /pets` can succeed. That is an upstream account-policy state, not necessarily a connector failure.
+
 **Full OAuth + tools simulation:**
 
 First, get a Sanctum token from the main app:
@@ -298,6 +300,12 @@ python scripts/simulate_gpt_tool_flow.py \
 ```
 
 All steps in both scripts should return 2xx status codes.
+
+For Custom GPT behavior, keep the onboarding wording aligned with the current account flow:
+- if the user already has a Meo Mai Moi account, the GPT should tell them to use Connect Account and sign in on the Meo Mai Moi page
+- if the user needs a new account, the GPT should ask which email they want to use before sending them into Connect Account
+- the GPT should not ask for passwords in chat
+- if email verification is enabled upstream, the GPT should warn that protected pet tools may require email verification before they work
 
 ---
 
@@ -337,6 +345,12 @@ check that you are running the latest code.
 The `country` field (2-letter ISO code) is required by the main app but wasn't included in the
 GPT request. The GPT should ask the user for their country if not clear from context. This was
 a known gap in earlier versions — `country` is now included in the `CreatePetRequest` schema.
+
+### Upstream `429` now reaches the GPT as `429`
+
+This is expected after the connector update. The connector now preserves upstream rate-limit and quota meaning instead of rewriting `429` into a generic `502`.
+
+If the main app includes safe quota metadata, the connector keeps it in the error payload so support and debugging can distinguish minute throttling from daily quota exhaustion.
 
 ### Port conflict on startup
 

@@ -73,6 +73,8 @@ def _parse_iso_date(raw: Any) -> date | None:
 
 async def _load_pets(current_token: tuple[int, str], settings: Settings) -> list[dict[str, Any]]:
     _, sanctum_token = current_token
+    # This upstream read depends on the main app's generic PAT contract (`read`),
+    # not just on `/api/my-pets` existing.
     raw = await call_main_app(
         method="GET",
         path="/api/my-pets",
@@ -356,6 +358,7 @@ async def create_pet(
     upstream_payload = {key: value for key, value in upstream_payload.items() if value is not None}
 
     try:
+        # This upstream create depends on the main app's generic PAT contract (`create`).
         status_code, body = await call_main_app(
             method="POST",
             path="/api/pets",
@@ -426,6 +429,7 @@ async def update_pet(
         )
 
     try:
+        # This upstream update depends on the main app's generic PAT contract (`update`).
         return await call_main_app(
             method="PUT",
             path=f"/api/pets/{pet_id}",

@@ -47,6 +47,50 @@ def _message_from_upstream(upstream_data: Any, fallback: str) -> str:
     return fallback
 
 
+def _extract_upstream_data(upstream_data: Any) -> dict[str, Any]:
+    if not isinstance(upstream_data, dict):
+        return {}
+    data = upstream_data.get("data")
+    return data if isinstance(data, dict) else {}
+
+
+def _extract_quota_metadata(upstream_data: Any) -> dict[str, Any] | None:
+    data = _extract_upstream_data(upstream_data)
+    quota = data.get("quota")
+    return quota if isinstance(quota, dict) else None
+
+
+def _extract_retry_after(upstream_data: Any) -> int | str | None:
+    data = _extract_upstream_data(upstream_data)
+    retry_after = data.get("retry_after")
+    if isinstance(retry_after, (int, str)):
+        return retry_after
+    return None
+
+
+def _rate_limit_error_payload(upstream_data: Any, request_id: str) -> dict[str, Any]:
+    data = _extract_upstream_data(upstream_data)
+    upstream_error_code = data.get("error_code")
+    payload: dict[str, Any] = {
+        "error": "RATE_LIMITED",
+        "message": _message_from_upstream(
+            upstream_data,
+            "The main app rate limit was reached. Please try again later.",
+        ),
+        "fields": [],
+        "request_id": request_id,
+    }
+    if isinstance(upstream_error_code, str) and upstream_error_code.strip():
+        payload["upstream_error_code"] = upstream_error_code
+    quota = _extract_quota_metadata(upstream_data)
+    if quota is not None:
+        payload["quota"] = quota
+    retry_after = _extract_retry_after(upstream_data)
+    if retry_after is not None:
+        payload["retry_after"] = retry_after
+    return payload
+
+
 def _normalize_http_error(status_code: int, upstream_data: Any) -> tuple[int, dict[str, Any]]:
     request_id = _request_id()
 
@@ -72,12 +116,7 @@ def _normalize_http_error(status_code: int, upstream_data: Any) -> tuple[int, di
             "request_id": request_id,
         }
     if status_code == 429:
-        return 502, {
-            "error": "UPSTREAM_ERROR",
-            "message": "The server is busy, please try again in a moment.",
-            "fields": [],
-            "request_id": request_id,
-        }
+        return 429, _rate_limit_error_payload(upstream_data, request_id)
     if status_code >= 500:
         return 502, {
             "error": "UPSTREAM_ERROR",
