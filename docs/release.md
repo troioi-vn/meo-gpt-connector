@@ -36,14 +36,14 @@ Edit `pyproject.toml`:
 
 ```toml
 [project]
-version = "0.2.1"
+version = "0.2.2"
 ```
 
 Commit on `dev`:
 
 ```bash
 git add pyproject.toml
-git commit -m "chore(release): bump version to v0.2.1"
+git commit -m "chore(release): bump version to v0.2.2"
 ```
 
 ### 3. Merge `dev` into `main`
@@ -52,7 +52,7 @@ Use `--no-ff` to create a merge commit so the release boundary is visible in his
 
 ```bash
 git checkout main
-git merge --no-ff dev -m "Merge dev into main for v0.2.1 release"
+git merge --no-ff dev -m "Merge dev into main for v0.2.2 release"
 ```
 
 ### 4. Tag the release
@@ -60,7 +60,7 @@ git merge --no-ff dev -m "Merge dev into main for v0.2.1 release"
 Create an annotated tag on `main`:
 
 ```bash
-git tag -a v0.2.1 -m "v0.2.1 - Add pets_overview bulk tool and GPT routing guidance"
+git tag -a v0.2.2 -m "v0.2.2 - Align GPT onboarding and preserve upstream rate-limit semantics"
 ```
 
 ### 5. Push
@@ -69,7 +69,7 @@ Push the branch and the tag separately:
 
 ```bash
 git push origin main
-git push origin v0.2.1
+git push origin v0.2.2
 ```
 
 ### 6. Create GitHub release
@@ -77,8 +77,8 @@ git push origin v0.2.1
 Publish a GitHub release for the tag:
 
 ```bash
-gh release create v0.2.1 \
-  --title "v0.2.1" \
+gh release create v0.2.2 \
+  --title "v0.2.2" \
   --generate-notes
 ```
 
@@ -97,7 +97,7 @@ git push origin dev
 ```bash
 # Check version is correct on the running connector
 curl -f https://gpt.troioi.vn/health
-# Expect: {"status": "ok", "version": "0.2.1", "main_app_reachable": true}
+# Expect: {"status": "ok", "version": "0.2.2", "main_app_reachable": true}
 ```
 
 For releases that touch upstream auth/error handling, also do one small live proof against the current backend:
@@ -111,19 +111,18 @@ For releases that touch upstream auth/error handling, also do one small live pro
 
 ```bash
 # Summary of commits between two releases
-git log --oneline v0.2.0..v0.2.1
+git log --oneline v0.2.1..v0.2.2
 
 # Full diff between releases
-git diff v0.2.0..v0.2.1
+git diff v0.2.1..v0.2.2
 
 # All releases
 git tag -l 'v*'
 ```
 
-## v0.2.1 release notes
+## v0.2.2 release notes
 
-- Added `POST /pets/overview` as a bulk GPT tool for cross-pet filtering/sorting.
-- Added computed fields in overview response:
-  `next_vaccination_due_at`, `next_vaccination_name`, and `vaccination_data_status`.
-- Added GPT routing guidance to prefer `pets_overview` for ranking/comparison requests
-  instead of per-pet vaccination loops.
+- Preserved upstream `429` responses as connector `429` instead of collapsing them into generic `502` errors.
+- Preserved safe upstream quota metadata in connector error payloads for daily quota and rate-limit debugging.
+- Added regression coverage proving that exchanged Sanctum tokens can still use PAT-gated upstream routes such as `GET /api/my-pets` and `POST /api/pets`.
+- Added GPT onboarding guidance for the new-account flow: ask which email the user wants to use before sending them into Connect Account, and warn when email verification may delay protected pet tools.
