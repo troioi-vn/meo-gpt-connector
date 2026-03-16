@@ -1,7 +1,20 @@
-# Production Deployment Guide
+# Deployment Guide
 
 This guide covers deploying the connector on a Linux server with nginx, Docker, and Let's Encrypt SSL.
 For local development setup, see [install.md](install.md).
+
+The current production model uses two long-lived checkouts on the `meo` server:
+
+| Branch | Server path | Public URL | Purpose |
+|---|---|---|---|
+| `main` | `/srv/gpt-connector` | `https://gpt-connector.meo-mai-moi.com` | production |
+| `dev` | `/srv/gpt-connector-test` | `https://gpt-connector-test.meo-mai-moi.com` | staging / test |
+
+Those checkouts are now intended to be updated by Woodpecker:
+
+- `push` to `main` deploys `/srv/gpt-connector`
+- `push` to `dev` deploys `/srv/gpt-connector-test`
+- server-managed files such as `.env`, nginx config, and TLS certificates stay in place and are not overwritten by CI
 
 ---
 
@@ -20,9 +33,6 @@ Two independent deployments on the same server share one nginx and one Docker da
 | prod     | gpt-connector.meo-mai-moi.com      | 8001          | 6379       |
 | test     | gpt-connector-test.meo-mai-moi.com | 8002          | 6380       |
 
-> **Note:** The repository directories on the server are named `gpt-connetcor` and `gpt-connetcor-test`
-> (one `c` missing in "connector") — this is a pre-existing server convention, not a typo to fix.
-
 ---
 
 ## Prerequisites
@@ -37,16 +47,16 @@ Two independent deployments on the same server share one nginx and one Docker da
 
 ---
 
-## 1. Clone the repository
+## 1. Prepare the server checkouts
 
 ```bash
 # Production instance
-sudo git clone <repo-url> /srv/gpt-connetcor
-sudo chown -R $USER:$USER /srv/gpt-connetcor
+sudo git clone <repo-url> /srv/gpt-connector
+sudo chown -R $USER:$USER /srv/gpt-connector
 
 # Test/staging instance (separate clone, independently configurable)
-sudo git clone <repo-url> /srv/gpt-connetcor-test
-sudo chown -R $USER:$USER /srv/gpt-connetcor-test
+sudo git clone <repo-url> /srv/gpt-connector-test
+sudo chown -R $USER:$USER /srv/gpt-connector-test
 ```
 
 ---
@@ -57,21 +67,17 @@ The default `docker-compose.yml` binds the connector to port `8001` and Redis to
 The test instance must use different ports to avoid conflicts. Edit directly:
 
 ```bash
-# In /srv/gpt-connetcor-test/docker-compose.yml
-sed -i 's/"8001:8000"/"8002:8000"/' docker-compose.yml
-sed -i 's/"6379:6379"/"6380:6379"/' docker-compose.yml
+# In /srv/gpt-connector-test/.env
+printf '\nCONNECTOR_PORT=8002\nREDIS_PORT=6380\n' >> .env
 ```
 
 Verify:
 ```bash
-grep -E '"800|"637' docker-compose.yml
+grep -E '^(CONNECTOR_PORT|REDIS_PORT)=' .env
 # Expected:
-#   - "8002:8000"
-#   - "6380:6379"
+# CONNECTOR_PORT=8002
+# REDIS_PORT=6380
 ```
-
-> Do **not** use `docker-compose.override.yml` for port changes — Docker Compose merges port lists
-> instead of replacing them, causing both old and new ports to be bound simultaneously.
 
 ---
 
@@ -97,8 +103,8 @@ Save the output — you will need these values in both the connector `.env` and 
 ## 4. Configure the connector .env
 
 ```bash
-cp /srv/gpt-connetcor-test/.env.example /srv/gpt-connetcor-test/.env
-nano /srv/gpt-connetcor-test/.env
+cp /srv/gpt-connector-test/.env.example /srv/gpt-connector-test/.env
+nano /srv/gpt-connector-test/.env
 ```
 
 | Variable | Value |
@@ -224,7 +230,7 @@ sudo certbot renew --dry-run
 ## 8. Start the connector
 
 ```bash
-cd /srv/gpt-connetcor-test
+cd /srv/gpt-connector-test
 docker compose up -d --build
 ```
 
@@ -236,9 +242,33 @@ docker ps --format 'table {{.Names}}\t{{.Ports}}\t{{.Status}}' | grep gpt
 
 Expected output:
 ```
-gpt-connetcor-test-connector-1   0.0.0.0:8002->8000/tcp   Up X minutes (healthy)
-gpt-connetcor-test-redis-1       0.0.0.0:6380->6379/tcp   Up X minutes (healthy)
+gpt-connector-test-connector-1   0.0.0.0:8002->8000/tcp   Up X minutes (healthy)
+gpt-connector-test-redis-1       0.0.0.0:6380->6379/tcp   Up X minutes (healthy)
 ```
+
+---
+
+## Woodpecker setup
+
+Repo-side CI configuration lives in [`.woodpecker.yml`](../.woodpecker.yml). The deploy helper it calls on the target host is [`utils/deploy-ci.sh`](../utils/deploy-ci.sh).
+
+Required Woodpecker secrets for this repo:
+
+| Secret | Value |
+|---|---|
+| `MEO_HOST` | `10.23.0.2` |
+| `MEO_USER` | `ubuntu` |
+| `MEO_SSH_KEY` | private deploy key authorized on `meo` |
+| `PROD_DEPLOY_PATH` | `/srv/gpt-connector` |
+| `DEV_DEPLOY_PATH` | `/srv/gpt-connector-test` |
+
+Deploy flow:
+
+1. Woodpecker clones the repo for the pushed commit.
+2. The matching branch step SSHes to `meo`.
+3. The long-lived checkout on `meo` is reset to `CI_COMMIT_SHA`.
+4. `docker compose up -d --build` rebuilds just that instance.
+5. CI waits for the instance-local `http://127.0.0.1:<port>/health` endpoint to return success.
 
 ---
 
