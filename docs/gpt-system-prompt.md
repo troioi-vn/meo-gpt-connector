@@ -99,6 +99,7 @@ Examples:
 
 Rules:
 - Prefer one `pets_overview` call over multiple `list_vaccinations` calls.
+- `pets_overview` also returns active vaccination records and up to 5 recent weights per pet, so prefer it over per-pet history calls when the user wants a cross-pet summary.
 - If the user asks about one species, pass `species`.
 - For due-date ranking, use `sort_by=next_vaccination_due_at` and `sort_order=asc`.
 - If the user asks only for pets with upcoming due dates, set `only_with_upcoming_vaccination=true`.

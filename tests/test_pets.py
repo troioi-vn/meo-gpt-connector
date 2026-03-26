@@ -91,6 +91,8 @@ def test_pets_overview_filters_and_sorts_by_next_vaccination_due_at(client):
             ],
         )
     )
+    respx.get("http://test-main-app/api/pets/1/weights").mock(return_value=httpx.Response(200, json=[]))
+    respx.get("http://test-main-app/api/pets/3/weights").mock(return_value=httpx.Response(200, json=[]))
 
     resp = client.post(
         "/pets/overview",
@@ -110,6 +112,7 @@ def test_pets_overview_filters_and_sorts_by_next_vaccination_due_at(client):
     assert data[1]["next_vaccination_due_at"] == "2099-01-05"
     assert data[1]["next_vaccination_name"] == "Rabies"
     assert all(item["vaccination_data_status"] == "available" for item in data)
+    assert all(item["weights_data_status"] == "available" for item in data)
 
 
 @respx.mock
@@ -132,6 +135,12 @@ def test_pets_overview_keeps_partial_results_when_one_pet_vaccinations_fail(clie
     respx.get("http://test-main-app/api/pets/2/vaccinations").mock(
         return_value=httpx.Response(500, json={"message": "Temporary failure"})
     )
+    respx.get("http://test-main-app/api/pets/1/weights").mock(
+        return_value=httpx.Response(200, json=[{"id": 20, "weight_kg": 4.4, "record_date": "2026-03-01"}])
+    )
+    respx.get("http://test-main-app/api/pets/2/weights").mock(
+        return_value=httpx.Response(500, json={"message": "Temporary failure"})
+    )
 
     resp = client.post("/pets/overview", json={}, headers=_auth_headers())
 
@@ -140,8 +149,12 @@ def test_pets_overview_keeps_partial_results_when_one_pet_vaccinations_fail(clie
     by_name = {item["name"]: item for item in data}
     assert by_name["Mimi"]["vaccination_data_status"] == "available"
     assert by_name["Mimi"]["next_vaccination_due_at"] == "2099-02-01"
+    assert by_name["Mimi"]["weights_data_status"] == "available"
+    assert by_name["Mimi"]["recent_weights"][0]["weight_kg"] == 4.4
     assert by_name["Bun"]["vaccination_data_status"] == "unavailable"
     assert by_name["Bun"]["next_vaccination_due_at"] is None
+    assert by_name["Bun"]["weights_data_status"] == "unavailable"
+    assert by_name["Bun"]["recent_weights"] == []
 
 
 @respx.mock
@@ -173,8 +186,46 @@ def test_pets_overview_includes_birthday_context_and_computed_age(client):
             ],
         )
     )
-    respx.get("http://test-main-app/api/pets/1/vaccinations").mock(return_value=httpx.Response(200, json=[]))
+    respx.get("http://test-main-app/api/pets/1/vaccinations").mock(
+        return_value=httpx.Response(
+            200,
+            json=[
+                {
+                    "id": 10,
+                    "vaccine_name": "Rabies",
+                    "administered_at": "2025-04-01",
+                    "due_at": "2026-04-02",
+                },
+                {
+                    "id": 11,
+                    "vaccine_name": "FVRCP",
+                    "administered_at": "2025-01-01",
+                    "due_at": "2025-12-31",
+                    "completed_at": "2025-12-31T00:00:00Z",
+                },
+                {
+                    "id": 12,
+                    "vaccine_name": "Bordetella",
+                    "administered_at": "2026-01-15",
+                },
+            ],
+        )
+    )
     respx.get("http://test-main-app/api/pets/2/vaccinations").mock(return_value=httpx.Response(200, json=[]))
+    respx.get("http://test-main-app/api/pets/1/weights").mock(
+        return_value=httpx.Response(
+            200,
+            json=[
+                {"id": 31, "weight_kg": 4.1, "record_date": "2026-03-01"},
+                {"id": 32, "weight_kg": 4.2, "record_date": "2026-03-15"},
+                {"id": 33, "weight_kg": 4.3, "record_date": "2026-02-15"},
+                {"id": 34, "weight_kg": 4.4, "record_date": "2026-03-20"},
+                {"id": 35, "weight_kg": 4.5, "record_date": "2026-01-10"},
+                {"id": 36, "weight_kg": 4.6, "record_date": "2026-03-25"},
+            ],
+        )
+    )
+    respx.get("http://test-main-app/api/pets/2/weights").mock(return_value=httpx.Response(200, json=[]))
 
     with patch("src.routers.pets.date") as mock_date:
         from datetime import date as real_date
@@ -182,6 +233,7 @@ def test_pets_overview_includes_birthday_context_and_computed_age(client):
         mock_date.today.return_value = real_date(2026, 3, 26)
         mock_date.max = real_date.max
         mock_date.min = real_date.min
+        mock_date.fromisoformat.side_effect = real_date.fromisoformat
         mock_date.side_effect = lambda *args, **kwargs: real_date(*args, **kwargs)
 
         resp = client.post(
@@ -197,10 +249,22 @@ def test_pets_overview_includes_birthday_context_and_computed_age(client):
     assert data[0]["birthday_precision"] == "day"
     assert data[0]["next_birthday_at"] == "2026-04-02"
     assert data[0]["days_until_next_birthday"] == 7
+    assert data[0]["next_vaccination_due_at"] == "2026-04-02"
+    assert [item["vaccine_name"] for item in data[0]["active_vaccinations"]] == ["Rabies", "Bordetella"]
+    assert [item["record_date"] for item in data[0]["recent_weights"]] == [
+        "2026-03-25",
+        "2026-03-20",
+        "2026-03-15",
+        "2026-03-01",
+        "2026-02-15",
+    ]
+    assert data[0]["weights_data_status"] == "available"
     assert data[1]["age"] == "3 years"
     assert data[1]["birthday_precision"] == "month"
     assert data[1]["next_birthday_at"] is None
     assert data[1]["days_until_next_birthday"] is None
+    assert data[1]["active_vaccinations"] == []
+    assert data[1]["recent_weights"] == []
 
 
 @respx.mock

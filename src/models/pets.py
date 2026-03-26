@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field, field_validator
 
 SexInput = Literal["male", "female", "unknown", "not_specified"]
 BirthdayPrecision = Literal["day", "month", "year", "unknown"]
+DataStatus = Literal["available", "unavailable"]
 
 
 class PetTypeItem(BaseModel):
@@ -56,6 +57,14 @@ class PetsOverviewRequest(BaseModel):
 
 
 class PetOverviewItem(PetSummary):
+    active_vaccinations: list["PetOverviewVaccinationItem"] = Field(
+        default_factory=list,
+        description="Active vaccination records for this pet (completed records are excluded).",
+    )
+    recent_weights: list["PetOverviewWeightItem"] = Field(
+        default_factory=list,
+        description="Up to 5 most recent weight records, newest first.",
+    )
     birthday_precision: BirthdayPrecision | None = Field(
         default=None,
         description="Birthday accuracy from the main app. 'day' means exact date, 'month' means month/year only, 'year' means year only, 'unknown' means no birthday data.",
@@ -88,9 +97,25 @@ class PetOverviewItem(PetSummary):
         default=None,
         description="Vaccine name for next_vaccination_due_at, if available.",
     )
-    vaccination_data_status: Literal["available", "unavailable"] = Field(
+    vaccination_data_status: DataStatus = Field(
         description="Whether vaccination history was successfully loaded for this pet.",
     )
+    weights_data_status: DataStatus = Field(
+        description="Whether weight history was successfully loaded for this pet.",
+    )
+
+
+class PetOverviewVaccinationItem(BaseModel):
+    id: int | None = Field(default=None, description="Vaccination record ID, if available.")
+    vaccine_name: str | None = Field(default=None, description="Name of the vaccine.")
+    administered_at: date | None = Field(default=None, description="Date the vaccine was administered (YYYY-MM-DD).")
+    due_at: date | None = Field(default=None, description="Date the next dose is due (YYYY-MM-DD), if present.")
+
+
+class PetOverviewWeightItem(BaseModel):
+    id: int | None = Field(default=None, description="Weight record ID, if available.")
+    weight_kg: float | None = Field(default=None, description="Recorded body weight in kilograms.")
+    record_date: date | None = Field(default=None, description="Date the weight was recorded (YYYY-MM-DD).")
 
 
 class CreatePetRequest(BaseModel):

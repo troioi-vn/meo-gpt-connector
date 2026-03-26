@@ -71,6 +71,29 @@ def _parse_iso_date(raw: Any) -> date | None:
         return None
 
 
+def _sort_active_vaccinations(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return sorted(
+        records,
+        key=lambda item: (
+            item["due_at"] is None,
+            item["due_at"] or date.max,
+            -((item["administered_at"] or date.min).toordinal()),
+            str(item.get("vaccine_name", "")).lower(),
+        ),
+    )
+
+
+def _sort_recent_weights(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return sorted(
+        records,
+        key=lambda item: (
+            item["record_date"] is None,
+            -((item["record_date"] or date.min).toordinal()),
+            -(item.get("id") or 0),
+        ),
+    )
+
+
 async def _load_pets(current_token: tuple[int, str], settings: Settings) -> list[dict[str, Any]]:
     _, sanctum_token = current_token
     # This upstream read depends on the main app's generic PAT contract (`read`),
@@ -89,7 +112,7 @@ async def _load_pet_next_vaccination_due(
     pet_id: int,
     sanctum_token: str,
     settings: Settings,
-) -> tuple[date | None, str | None, str]:
+) -> tuple[date | None, str | None, str, list[dict[str, Any]]]:
     try:
         raw = await call_main_app(
             method="GET",
@@ -98,22 +121,69 @@ async def _load_pet_next_vaccination_due(
             sanctum_token=sanctum_token,
         )
     except MainAppError:
-        return None, None, "unavailable"
+        return None, None, "unavailable", []
 
     today = date.today()
     upcoming: list[tuple[date, str | None]] = []
+    active_records: list[dict[str, Any]] = []
     for item in _extract_list(raw):
+        if item.get("completed_at") is not None:
+            continue
+
         due_at = _parse_iso_date(item.get("due_at"))
+        administered_at = _parse_iso_date(item.get("administered_at"))
+        vaccine_name = item.get("vaccine_name")
+        active_records.append(
+            {
+                "id": item.get("id"),
+                "vaccine_name": vaccine_name if isinstance(vaccine_name, str) else None,
+                "administered_at": administered_at,
+                "due_at": due_at,
+            }
+        )
         if due_at is None or due_at < today:
             continue
-        vaccine_name = item.get("vaccine_name")
         upcoming.append((due_at, vaccine_name if isinstance(vaccine_name, str) else None))
 
+    active_records = _sort_active_vaccinations(active_records)
+
     if not upcoming:
-        return None, None, "available"
+        return None, None, "available", active_records
 
     due_at, vaccine_name = min(upcoming, key=lambda value: value[0])
-    return due_at, vaccine_name, "available"
+    return due_at, vaccine_name, "available", active_records
+
+
+async def _load_pet_recent_weights(
+    pet_id: int,
+    sanctum_token: str,
+    settings: Settings,
+) -> tuple[list[dict[str, Any]], str]:
+    try:
+        raw = await call_main_app(
+            method="GET",
+            path=f"/api/pets/{pet_id}/weights",
+            settings=settings,
+            sanctum_token=sanctum_token,
+        )
+    except MainAppError:
+        return [], "unavailable"
+
+    weights: list[dict[str, Any]] = []
+    for item in _extract_list(raw):
+        try:
+            weight_kg = float(item["weight_kg"]) if item.get("weight_kg") is not None else None
+        except (TypeError, ValueError):
+            weight_kg = None
+        weights.append(
+            {
+                "id": item.get("id"),
+                "weight_kg": weight_kg,
+                "record_date": _parse_iso_date(item.get("record_date")),
+            }
+        )
+
+    return _sort_recent_weights(weights)[:5], "available"
 
 
 @router.get(
@@ -159,9 +229,8 @@ async def list_pets(
     operation_id="pets_overview",
     response_model=list[PetOverviewItem],
     description=(
-        "Return many pets with next vaccination due dates, birthday context, and age in one call. "
-        "Use for cross-pet comparisons, filtering, or sorting, including upcoming vaccinations or next birthdays. "
-        "Do not call per-pet vaccination tools when this overview is enough."
+        "Return many pets with next vaccination due dates, active vaccination records, recent weights, birthday context, and age in one call. "
+        "Use for cross-pet comparisons or summaries. Do not call per-pet vaccination or weight tools when this overview is enough."
     ),
 )
 async def pets_overview(
@@ -182,6 +251,7 @@ async def pets_overview(
         return JSONResponse(status_code=exc.status_code, content=exc.payload)
 
     filtered = filter_pet_candidates(pets, name=payload.name, species=payload.species)
+    pets_with_ids = [pet for pet in filtered if pet.get("id") is not None]
     vaccination_items = await asyncio.gather(
         *[
             _load_pet_next_vaccination_due(
@@ -189,29 +259,50 @@ async def pets_overview(
                 sanctum_token=sanctum_token,
                 settings=settings,
             )
-            for pet in filtered
-            if pet.get("id") is not None
+            for pet in pets_with_ids
+        ]
+    )
+    weight_items = await asyncio.gather(
+        *[
+            _load_pet_recent_weights(
+                pet_id=int(pet["id"]),
+                sanctum_token=sanctum_token,
+                settings=settings,
+            )
+            for pet in pets_with_ids
         ]
     )
 
-    by_pet_id: dict[int, tuple[date | None, str | None, str]] = {}
-    for pet, summary in zip([pet for pet in filtered if pet.get("id") is not None], vaccination_items, strict=False):
+    by_pet_id: dict[int, tuple[date | None, str | None, str, list[dict[str, Any]]]] = {}
+    for pet, summary in zip(pets_with_ids, vaccination_items, strict=False):
         by_pet_id[int(pet["id"])] = summary
+    weights_by_pet_id: dict[int, tuple[list[dict[str, Any]], str]] = {}
+    for pet, summary in zip(pets_with_ids, weight_items, strict=False):
+        weights_by_pet_id[int(pet["id"])] = summary
 
     items: list[dict[str, Any]] = []
     for pet in filtered:
         pet_id = pet.get("id")
         due_at: date | None = None
         vaccine_name: str | None = None
-        status = "unavailable"
+        vaccination_status = "unavailable"
+        active_vaccinations: list[dict[str, Any]] = []
+        recent_weights: list[dict[str, Any]] = []
+        weights_status = "unavailable"
         if isinstance(pet_id, int):
-            due_at, vaccine_name, status = by_pet_id.get(pet_id, (None, None, "unavailable"))
+            due_at, vaccine_name, vaccination_status, active_vaccinations = by_pet_id.get(
+                pet_id, (None, None, "unavailable", [])
+            )
+            recent_weights, weights_status = weights_by_pet_id.get(pet_id, ([], "unavailable"))
 
         item = {
             **pet,
+            "active_vaccinations": active_vaccinations,
+            "recent_weights": recent_weights,
             "next_vaccination_due_at": due_at,
             "next_vaccination_name": vaccine_name,
-            "vaccination_data_status": status,
+            "vaccination_data_status": vaccination_status,
+            "weights_data_status": weights_status,
         }
         items.append(item)
 
