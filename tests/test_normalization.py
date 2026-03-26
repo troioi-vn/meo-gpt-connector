@@ -2,7 +2,12 @@ from datetime import date
 
 import pytest
 
-from src.services.pets_normalization import normalize_birth_fields, normalize_sex, normalize_species_to_pet_type_id
+from src.services.pets_normalization import (
+    build_pet_time_context,
+    normalize_birth_fields,
+    normalize_sex,
+    normalize_species_to_pet_type_id,
+)
 
 
 def test_normalize_species_to_pet_type_id_success():
@@ -69,3 +74,34 @@ def test_normalize_birth_fields_reject_conflicting_inputs():
 def test_normalize_sex_maps_unknown():
     assert normalize_sex("unknown") == "not_specified"
     assert normalize_sex("female") == "female"
+
+
+def test_build_pet_time_context_computes_age_and_next_birthday_for_exact_birthdays():
+    value = build_pet_time_context(
+        {
+            "birthday_precision": "day",
+            "birthday_year": 2020,
+            "birthday_month": 3,
+            "birthday_day": 30,
+        },
+        today=date(2026, 3, 26),
+    )
+
+    assert value["age"] == "5 years 11 months"
+    assert value["next_birthday_at"] == date(2026, 3, 30)
+    assert value["days_until_next_birthday"] == 4
+
+
+def test_build_pet_time_context_keeps_unknown_age_for_partial_birthdays():
+    value = build_pet_time_context(
+        {
+            "birthday_precision": "month",
+            "birthday_year": 2021,
+            "birthday_month": 7,
+        },
+        today=date(2026, 3, 26),
+    )
+
+    assert value["age"] is None
+    assert value["next_birthday_at"] is None
+    assert value["days_until_next_birthday"] is None

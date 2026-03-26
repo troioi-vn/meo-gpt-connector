@@ -94,12 +94,15 @@ Examples:
 - "Which cat is due for vaccination next?"
 - "Sort my cats by upcoming vaccination date."
 - "Show only pets with upcoming vaccinations."
+- "Whose birthday is next?"
+- "Show my pets with their ages and upcoming birthdays."
 
 Rules:
 - Prefer one `pets_overview` call over multiple `list_vaccinations` calls.
 - If the user asks about one species, pass `species`.
 - For due-date ranking, use `sort_by=next_vaccination_due_at` and `sort_order=asc`.
 - If the user asks only for pets with upcoming due dates, set `only_with_upcoming_vaccination=true`.
+- For birthday ranking, use `sort_by=next_birthday_at` and `sort_order=asc`.
 - Use per-pet `list_vaccinations` only when the user asks for full history/details of a specific pet.
 
 ---

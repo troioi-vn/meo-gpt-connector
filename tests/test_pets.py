@@ -1,5 +1,6 @@
 import httpx
 import respx
+from unittest.mock import patch
 
 from src.core.jwt import create_jwt
 
@@ -141,6 +142,65 @@ def test_pets_overview_keeps_partial_results_when_one_pet_vaccinations_fail(clie
     assert by_name["Mimi"]["next_vaccination_due_at"] == "2099-02-01"
     assert by_name["Bun"]["vaccination_data_status"] == "unavailable"
     assert by_name["Bun"]["next_vaccination_due_at"] is None
+
+
+@respx.mock
+def test_pets_overview_includes_birthday_context_and_computed_age(client):
+    respx.get("http://test-main-app/api/my-pets").mock(
+        return_value=httpx.Response(
+            200,
+            json=[
+                {
+                    "id": 1,
+                    "name": "Mimi",
+                    "pet_type_id": 2,
+                    "sex": "female",
+                    "birthday_precision": "day",
+                    "birthday_year": 2020,
+                    "birthday_month": 4,
+                    "birthday_day": 2,
+                },
+                {
+                    "id": 2,
+                    "name": "Bun",
+                    "pet_type_id": 1,
+                    "sex": "male",
+                    "age": "3 years",
+                    "birthday_precision": "month",
+                    "birthday_year": 2022,
+                    "birthday_month": 11,
+                },
+            ],
+        )
+    )
+    respx.get("http://test-main-app/api/pets/1/vaccinations").mock(return_value=httpx.Response(200, json=[]))
+    respx.get("http://test-main-app/api/pets/2/vaccinations").mock(return_value=httpx.Response(200, json=[]))
+
+    with patch("src.routers.pets.date") as mock_date:
+        from datetime import date as real_date
+
+        mock_date.today.return_value = real_date(2026, 3, 26)
+        mock_date.max = real_date.max
+        mock_date.min = real_date.min
+        mock_date.side_effect = lambda *args, **kwargs: real_date(*args, **kwargs)
+
+        resp = client.post(
+            "/pets/overview",
+            json={"sort_by": "next_birthday_at", "sort_order": "asc"},
+            headers=_auth_headers(),
+        )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert [item["name"] for item in data] == ["Mimi", "Bun"]
+    assert data[0]["age"] == "5 years 11 months"
+    assert data[0]["birthday_precision"] == "day"
+    assert data[0]["next_birthday_at"] == "2026-04-02"
+    assert data[0]["days_until_next_birthday"] == 7
+    assert data[1]["age"] == "3 years"
+    assert data[1]["birthday_precision"] == "month"
+    assert data[1]["next_birthday_at"] is None
+    assert data[1]["days_until_next_birthday"] is None
 
 
 @respx.mock

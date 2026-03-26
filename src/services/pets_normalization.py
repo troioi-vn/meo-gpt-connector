@@ -4,6 +4,98 @@ from datetime import date
 from typing import Any
 
 
+_BIRTHDAY_PRECISIONS = {"day", "month", "year", "unknown"}
+
+
+def _coerce_int(value: Any) -> int | None:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _normalize_birthday_precision(value: Any) -> str | None:
+    if not isinstance(value, str):
+        return None
+    normalized = value.strip().lower()
+    if normalized in _BIRTHDAY_PRECISIONS:
+        return normalized
+    return None
+
+
+def _format_age_from_birthdate(birthdate: date, *, today: date) -> str | None:
+    if birthdate > today:
+        return None
+
+    years = today.year - birthdate.year
+    months = today.month - birthdate.month
+    if today.day < birthdate.day:
+        months -= 1
+
+    if months < 0:
+        years -= 1
+        months += 12
+
+    parts: list[str] = []
+    if years > 0:
+        parts.append(f"{years} year" if years == 1 else f"{years} years")
+    if months > 0:
+        parts.append(f"{months} month" if months == 1 else f"{months} months")
+
+    if not parts:
+        return "less than 1 month"
+    return " ".join(parts)
+
+
+def _build_birthday_date(year: int | None, month: int | None, day: int | None) -> date | None:
+    if year is None or month is None or day is None:
+        return None
+    try:
+        return date(year, month, day)
+    except ValueError:
+        return None
+
+
+def build_pet_time_context(raw: dict[str, Any], *, today: date | None = None) -> dict[str, Any]:
+    ref = today or date.today()
+    precision = _normalize_birthday_precision(raw.get("birthday_precision"))
+    birthday_year = _coerce_int(raw.get("birthday_year"))
+    birthday_month = _coerce_int(raw.get("birthday_month"))
+    birthday_day = _coerce_int(raw.get("birthday_day"))
+
+    age = raw.get("age")
+    if not isinstance(age, str) or not age.strip():
+        age = None
+
+    if age is None and precision == "day":
+        birthdate = _build_birthday_date(birthday_year, birthday_month, birthday_day)
+        if birthdate is not None:
+            age = _format_age_from_birthdate(birthdate, today=ref)
+
+    next_birthday_at: date | None = None
+    days_until_next_birthday: int | None = None
+    if precision == "day" and birthday_month is not None and birthday_day is not None:
+        for candidate_year in (ref.year, ref.year + 1):
+            try:
+                candidate = date(candidate_year, birthday_month, birthday_day)
+            except ValueError:
+                continue
+            if candidate >= ref:
+                next_birthday_at = candidate
+                days_until_next_birthday = (candidate - ref).days
+                break
+
+    return {
+        "age": age,
+        "birthday_precision": precision,
+        "birthday_year": birthday_year,
+        "birthday_month": birthday_month,
+        "birthday_day": birthday_day,
+        "next_birthday_at": next_birthday_at,
+        "days_until_next_birthday": days_until_next_birthday,
+    }
+
+
 def normalize_species_to_pet_type_id(species: str, pet_types_by_name: dict[str, int]) -> int:
     normalized = species.strip().lower()
     pet_type_id = pet_types_by_name.get(normalized)
@@ -77,8 +169,8 @@ def to_pet_summary(raw: dict[str, Any], species_by_type_id: dict[int, str]) -> d
         "name": raw.get("name"),
         "species": species,
         "sex": raw.get("sex"),
-        "age": raw.get("age"),
         "photo_url": raw.get("photo_url"),
+        **build_pet_time_context(raw),
     }
 
 

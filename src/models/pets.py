@@ -4,6 +4,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field, field_validator
 
 SexInput = Literal["male", "female", "unknown", "not_specified"]
+BirthdayPrecision = Literal["day", "month", "year", "unknown"]
 
 
 class PetTypeItem(BaseModel):
@@ -44,9 +45,9 @@ class PetsOverviewRequest(BaseModel):
         default=False,
         description="Set true when the user asks for pets that have an upcoming vaccination date.",
     )
-    sort_by: Literal["name", "next_vaccination_due_at"] = Field(
+    sort_by: Literal["name", "next_vaccination_due_at", "next_birthday_at"] = Field(
         default="name",
-        description="Sort field. Use next_vaccination_due_at for requests like 'which cat is due next'.",
+        description="Sort field. Use next_vaccination_due_at for care due-date questions, or next_birthday_at when the user asks whose birthday is next.",
     )
     sort_order: Literal["asc", "desc"] = Field(
         default="asc",
@@ -55,6 +56,30 @@ class PetsOverviewRequest(BaseModel):
 
 
 class PetOverviewItem(PetSummary):
+    birthday_precision: BirthdayPrecision | None = Field(
+        default=None,
+        description="Birthday accuracy from the main app. 'day' means exact date, 'month' means month/year only, 'year' means year only, 'unknown' means no birthday data.",
+    )
+    birthday_year: int | None = Field(
+        default=None,
+        description="Recorded birth year, if available.",
+    )
+    birthday_month: int | None = Field(
+        default=None,
+        description="Recorded birth month, if available.",
+    )
+    birthday_day: int | None = Field(
+        default=None,
+        description="Recorded birth day of month, if available.",
+    )
+    next_birthday_at: date | None = Field(
+        default=None,
+        description="Next upcoming birthday date when the pet has an exact month and day. Null when the birthday is only approximate or unknown.",
+    )
+    days_until_next_birthday: int | None = Field(
+        default=None,
+        description="Number of whole days until next_birthday_at. Null when the next birthday date cannot be computed exactly.",
+    )
     next_vaccination_due_at: date | None = Field(
         default=None,
         description="Earliest vaccination due date that is today or in the future. Null if unavailable.",

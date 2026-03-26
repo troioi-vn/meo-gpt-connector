@@ -159,9 +159,9 @@ async def list_pets(
     operation_id="pets_overview",
     response_model=list[PetOverviewItem],
     description=(
-        "Return many pets with computed next vaccination due dates in one call. "
+        "Return many pets with computed next vaccination due dates, birthday context, and age in one call. "
         "Use this tool for cross-pet comparisons, filtering, or sorting (for example: "
-        "'sort cats by upcoming vaccination date'). Do not call vaccinations per pet when "
+        "'sort cats by upcoming vaccination date' or 'whose birthday is next'). Do not call vaccinations per pet when "
         "this overview can answer the request."
     ),
 )
@@ -233,6 +233,24 @@ async def pets_overview(
                 key=lambda item: (
                     item["next_vaccination_due_at"] is not None,
                     item["next_vaccination_due_at"] or date.min,
+                    str(item.get("name", "")).lower(),
+                ),
+                reverse=True,
+            )
+    elif payload.sort_by == "next_birthday_at":
+        if payload.sort_order == "asc":
+            items.sort(
+                key=lambda item: (
+                    item["next_birthday_at"] is None,
+                    item["next_birthday_at"] or date.max,
+                    str(item.get("name", "")).lower(),
+                )
+            )
+        else:
+            items.sort(
+                key=lambda item: (
+                    item["next_birthday_at"] is not None,
+                    item["next_birthday_at"] or date.min,
                     str(item.get("name", "")).lower(),
                 ),
                 reverse=True,
