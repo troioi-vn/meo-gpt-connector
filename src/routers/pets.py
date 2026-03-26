@@ -159,10 +159,9 @@ async def list_pets(
     operation_id="pets_overview",
     response_model=list[PetOverviewItem],
     description=(
-        "Return many pets with computed next vaccination due dates, birthday context, and age in one call. "
-        "Use this tool for cross-pet comparisons, filtering, or sorting (for example: "
-        "'sort cats by upcoming vaccination date' or 'whose birthday is next'). Do not call vaccinations per pet when "
-        "this overview can answer the request."
+        "Return many pets with next vaccination due dates, birthday context, and age in one call. "
+        "Use for cross-pet comparisons, filtering, or sorting, including upcoming vaccinations or next birthdays. "
+        "Do not call per-pet vaccination tools when this overview is enough."
     ),
 )
 async def pets_overview(

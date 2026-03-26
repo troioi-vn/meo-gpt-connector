@@ -36,14 +36,14 @@ Edit `pyproject.toml`:
 
 ```toml
 [project]
-version = "0.2.2"
+version = "0.2.3"
 ```
 
 Commit on `dev`:
 
 ```bash
 git add pyproject.toml
-git commit -m "chore(release): bump version to v0.2.2"
+git commit -m "chore(release): bump version to v0.2.3"
 ```
 
 ### 3. Merge `dev` into `main`
@@ -52,7 +52,7 @@ Use `--no-ff` to create a merge commit so the release boundary is visible in his
 
 ```bash
 git checkout main
-git merge --no-ff dev -m "Merge dev into main for v0.2.2 release"
+git merge --no-ff dev -m "Merge dev into main for v0.2.3 release"
 ```
 
 ### 4. Tag the release
@@ -60,7 +60,7 @@ git merge --no-ff dev -m "Merge dev into main for v0.2.2 release"
 Create an annotated tag on `main`:
 
 ```bash
-git tag -a v0.2.2 -m "v0.2.2 - Align GPT onboarding and preserve upstream rate-limit semantics"
+git tag -a v0.2.3 -m "v0.2.3 - Add birthday context to pets overview"
 ```
 
 ### 5. Push
@@ -69,7 +69,7 @@ Push the branch and the tag separately:
 
 ```bash
 git push origin main
-git push origin v0.2.2
+git push origin v0.2.3
 ```
 
 ### 6. Create GitHub release
@@ -77,8 +77,8 @@ git push origin v0.2.2
 Publish a GitHub release for the tag:
 
 ```bash
-gh release create v0.2.2 \
-  --title "v0.2.2" \
+gh release create v0.2.3 \
+  --title "v0.2.3" \
   --generate-notes
 ```
 
@@ -97,7 +97,7 @@ git push origin dev
 ```bash
 # Check version is correct on the running connector
 curl -f https://gpt.troioi.vn/health
-# Expect: {"status": "ok", "version": "0.2.2", "main_app_reachable": true}
+# Expect: {"status": "ok", "version": "0.2.3", "main_app_reachable": true}
 ```
 
 For releases that touch upstream auth/error handling, also do one small live proof against the current backend:
@@ -111,16 +111,16 @@ For releases that touch upstream auth/error handling, also do one small live pro
 
 ```bash
 # Summary of commits between two releases
-git log --oneline v0.2.1..v0.2.2
+git log --oneline v0.2.2..v0.2.3
 
 # Full diff between releases
-git diff v0.2.1..v0.2.2
+git diff v0.2.2..v0.2.3
 
 # All releases
 git tag -l 'v*'
 ```
 
-## v0.2.2 release notes
+## v0.2.3 release notes
 
 - Preserved upstream `429` responses as connector `429` instead of collapsing them into generic `502` errors.
 - Preserved safe upstream quota metadata in connector error payloads for daily quota and rate-limit debugging.
