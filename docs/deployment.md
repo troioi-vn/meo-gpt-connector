@@ -283,7 +283,7 @@ Expected:
 ```json
 {
   "status": "ok",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "main_app_reachable": true
 }
 ```
