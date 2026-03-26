@@ -115,4 +115,4 @@ RATE_LIMIT_PER_MINUTE=60    # Max requests per user per minute
 - `docs/initial-tasks.md` — Ordered implementation task list.
 - `../meo-mai-moi/tmp/gpt-connector-plan.md` — Changes needed in the main app.
 - `docs/research/GPT-configuration-guide.md` — How to configure the Custom GPT in OpenAI.
-- `docs/release.md` — Release process (versioning, git tags, branching).
+- `docs/release.md` — Release runbook. Use this for every release; it includes the required version-bump checklist, tagging flow, deployment verification, and OpenAPI/GPT refresh steps.

@@ -1,90 +1,125 @@
-# Release Guide
+# Release Runbook
 
-Simple, repeatable steps to cut a new release.
+Use this document when cutting a new connector release (`vX.Y.Z`).
 
-## Version source of truth
+## Core rules
 
-- **`pyproject.toml`**: `[project] version = "..."` is the canonical version.
-- **Git tags**: Annotated tags (`v0.1.0`) mark each release. No separate CHANGELOG file — git
-  tags and commit messages are the source of truth.
-- **Runtime**: The `/health` endpoint returns the running version. The connector reads it from
-  the installed package metadata at startup (`importlib.metadata.version("meo-gpt-connector")`).
+- Release source branch is `dev`.
+- Release target branch is `main`.
+- Always create an annotated tag on `main`.
+- Never run `git push --tags`.
+- Git tags and GitHub Releases are separate things.
+- Version must be bumped before merge. Do not skip this.
 
-## Branching strategy
+## Version checklist
 
-```
-main    — production only, always stable
-dev     — integration branch, features merge here first
-feature/... — short-lived feature branches off dev
-```
+When bumping from `vA.B.C` to `vX.Y.Z`, update:
 
-Preferred: never commit directly to `main`; all work goes through `dev` first.
-If the repo is temporarily running without a `dev` branch, cut the release from `main`
-and re-introduce `dev` afterward.
+- `pyproject.toml`
+- `src/main.py`
+- any version examples in docs that would become misleading
 
-## How to release a new version
-
-### 1. Ensure `dev` is ready
-
-All features for the release are merged into `dev`. Tests pass. Docker build succeeds.
-
-Before cutting a release that depends on upstream auth or route behavior, verify the connector against the current Meo Mai Moi backend contract. In particular, confirm that exchanged Sanctum tokens still carry the generic PAT abilities needed for protected programmatic routes such as `GET /api/my-pets` and `POST /api/pets`.
-
-### 2. Bump the version on `dev`
-
-Edit `pyproject.toml`:
-
-```toml
-[project]
-version = "0.2.3"
-```
-
-Commit on `dev`:
+Quick check:
 
 ```bash
-git add pyproject.toml
-git commit -m "chore(release): bump version to v0.2.3"
+rg -n 'version = "|version="' pyproject.toml src docs
 ```
 
-### 3. Merge `dev` into `main`
+## Preflight
 
-Use `--no-ff` to create a merge commit so the release boundary is visible in history:
+Run from repo root:
+
+```bash
+git fetch --all --tags --prune
+git status --short --branch
+git tag -l 'v*' --sort=version:refname | tail -n 10
+git branch --show-current
+```
+
+Checklist:
+
+- Worktree is clean.
+- You are on `dev`.
+- `dev` contains all intended release changes.
+- Tests already passed for the release candidate.
+- You know the previous release tag.
+
+## Release procedure
+
+### 1. Choose next version
+
+```bash
+NEW=v0.2.4
+OLD=v0.2.3
+```
+
+### 2. Review release delta
+
+```bash
+git log --oneline ${OLD}..HEAD
+git diff --stat ${OLD}..HEAD
+```
+
+Write a short release summary before tagging:
+
+- one title line
+- one short summary sentence or paragraph
+- flat bullets for meaningful user-facing changes
+
+### 3. Bump version on `dev`
+
+Update:
+
+- `pyproject.toml`
+- `src/main.py`
+
+Then verify:
+
+```bash
+rg -n "${NEW#v}" pyproject.toml src/main.py docs
+```
+
+Commit:
+
+```bash
+git add pyproject.toml src/main.py docs
+git commit -m "chore(release): bump version to ${NEW}"
+```
+
+### 4. Merge `dev` into `main`
 
 ```bash
 git checkout main
-git merge --no-ff dev -m "Merge dev into main for v0.2.3 release"
+git pull --ff-only origin main
+git merge --ff-only dev
 ```
 
-### 4. Tag the release
+If fast-forward is not possible, stop and resolve branch state on `dev` first.
 
-Create an annotated tag on `main`:
+### 5. Create annotated tag
 
 ```bash
-git tag -a v0.2.3 -m "v0.2.3 - Add birthday context to pets overview"
+git tag -a ${NEW} -m "${NEW} - <short title>" -m "<release notes body>"
 ```
 
-### 5. Push
-
-Push the branch and the tag separately:
+### 6. Push `main` and tag
 
 ```bash
 git push origin main
-git push origin v0.2.3
+git push origin ${NEW}
 ```
 
-### 6. Create GitHub release
-
-Publish a GitHub release for the tag:
+### 7. Create GitHub Release
 
 ```bash
-gh release create v0.2.3 \
-  --title "v0.2.3" \
-  --generate-notes
+gh release create ${NEW} \
+  --verify-tag \
+  --notes-from-tag \
+  --title "${NEW} - <short title>" \
+  --latest
 ```
 
-### 7. Sync `dev` with `main`
-
-Keep dev aligned so it includes the merge commit:
+### 8. Sync `dev` with `main`
 
 ```bash
 git checkout dev
@@ -92,37 +127,55 @@ git merge main --ff-only
 git push origin dev
 ```
 
-### 8. Verify
+## Post-release verification
+
+### Branch and tag
 
 ```bash
-# Check version is correct on the running connector
-curl -f https://gpt.troioi.vn/health
-# Expect: {"status": "ok", "version": "0.2.3", "main_app_reachable": true}
+git show -s --oneline ${NEW}
+gh release view ${NEW}
+git log --oneline --decorate -n 5 --graph
 ```
 
-For releases that touch upstream auth/error handling, also do one small live proof against the current backend:
-
-- complete the OAuth exchange
-- call a PAT-gated read through the connector (`GET /pets` -> upstream `GET /api/my-pets`)
-- call a PAT-gated write through the connector (`POST /pets` -> upstream `POST /api/pets`)
-- confirm upstream `429` responses still surface as connector `429` with any quota metadata preserved
-
-## Viewing changes between releases
+### Running connector
 
 ```bash
-# Summary of commits between two releases
-git log --oneline v0.2.2..v0.2.3
-
-# Full diff between releases
-git diff v0.2.2..v0.2.3
-
-# All releases
-git tag -l 'v*'
+curl -f https://gpt-connector.meo-mai-moi.com/health
 ```
 
-## v0.2.3 release notes
+Expect the deployed version to match `${NEW#v}`.
 
-- Preserved upstream `429` responses as connector `429` instead of collapsing them into generic `502` errors.
-- Preserved safe upstream quota metadata in connector error payloads for daily quota and rate-limit debugging.
-- Added regression coverage proving that exchanged Sanctum tokens can still use PAT-gated upstream routes such as `GET /api/my-pets` and `POST /api/pets`.
-- Added GPT onboarding guidance for the new-account flow: ask which email the user wants to use before sending them into Connect Account, and warn when email verification may delay protected pet tools.
+### OpenAPI and GPT refresh
+
+If the release changes tool schema, descriptions, or auth behavior:
+
+```bash
+curl -fsSL https://gpt-connector.meo-mai-moi.com/openapi.json | head
+```
+
+Checklist:
+
+- live OpenAPI contains the new fields/enums/descriptions
+- Custom GPT action schema is re-imported from the live OpenAPI URL
+- OAuth still works
+- one read action works
+- one write action works
+
+## Failure handling
+
+- If version was not bumped before merge, fix it immediately on `dev`, merge again, and retag with a new version.
+- If `main` push succeeds but tag push fails, retry only the tag push.
+- If the wrong tag message was published, create a new version tag instead of force-moving the old one.
+- If OpenAPI changed but the GPT was not reloaded, the deployment is incomplete.
+
+## Release note template
+
+```text
+vX.Y.Z - <short title>
+
+<One short summary paragraph.>
+
+- <User-facing change 1>
+- <User-facing change 2>
+- <User-facing change 3>
+```
