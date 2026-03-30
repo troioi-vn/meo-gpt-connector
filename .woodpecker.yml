@@ -2,6 +2,48 @@ when:
   - event: [push, manual]
 
 steps:
+  notify_start:
+    image: curlimages/curl:8.16.0
+    environment:
+      N8N_WEBHOOK_URL:
+        from_secret: N8N_WEBHOOK_URL
+      N8N_WEBHOOK_NAME:
+        from_secret: N8N_WEBHOOK_NAME
+      N8N_WEBHOOK_TOKEN:
+        from_secret: N8N_WEBHOOK_TOKEN
+    commands:
+      - test -n "$${N8N_WEBHOOK_URL}"
+      - test -n "$${N8N_WEBHOOK_NAME}"
+      - test -n "$${N8N_WEBHOOK_TOKEN}"
+      - |
+        start_epoch="$$(date -u +%s)"
+        start_utc="$$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        commit_message_b64="$$(printf '%s\n' "${CI_COMMIT_MESSAGE}" | head -n 1 | tr '\t' ' ' | tr -s ' ' | sed 's/^ //; s/ $//' | base64 | tr -d '\n')"
+        printf '%s\n' "$$start_epoch" > .woodpecker-deploy-start-epoch
+
+        curl -sS -X POST \
+          "$${N8N_WEBHOOK_URL}" \
+          -H "$${N8N_WEBHOOK_NAME}: $${N8N_WEBHOOK_TOKEN}" \
+          -H "Content-Type: application/json" \
+          --data @- <<EOF
+        {
+          "event": "deploy",
+          "phase": "start",
+          "status": "started",
+          "source": "woodpecker",
+          "repo": "${CI_REPO}",
+          "branch": "${CI_COMMIT_BRANCH}",
+          "pipeline_number": "${CI_PIPELINE_NUMBER}",
+          "commit_message_b64": "$$commit_message_b64",
+          "commit_sha": "${CI_COMMIT_SHA}",
+          "target": "meo",
+          "site": "meo-gpt-connector",
+          "started_at_utc": "$$start_utc",
+          "started_at_unix": $$start_epoch,
+          "sent_at_utc": "$$start_utc"
+        }
+        EOF
+
   verify_deploy_files:
     image: alpine:3.22
     commands:
@@ -130,3 +172,105 @@ steps:
           git reset --hard '$${CI_COMMIT_SHA}' && \
           chmod +x ./utils/deploy-ci.sh && \
           CI_COMMIT_BRANCH='dev' CI_COMMIT_SHA='$${CI_COMMIT_SHA}' ./utils/deploy-ci.sh '$${DEV_DEPLOY_PATH}' dev"
+
+  notify_success:
+    image: curlimages/curl:8.16.0
+    when:
+      - status: success
+    environment:
+      N8N_WEBHOOK_URL:
+        from_secret: N8N_WEBHOOK_URL
+      N8N_WEBHOOK_NAME:
+        from_secret: N8N_WEBHOOK_NAME
+      N8N_WEBHOOK_TOKEN:
+        from_secret: N8N_WEBHOOK_TOKEN
+    commands:
+      - test -n "$${N8N_WEBHOOK_URL}"
+      - test -n "$${N8N_WEBHOOK_NAME}"
+      - test -n "$${N8N_WEBHOOK_TOKEN}"
+      - |
+        finish_epoch="$$(date -u +%s)"
+        finish_utc="$$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        start_epoch="$$(cat .woodpecker-deploy-start-epoch 2>/dev/null || true)"
+        commit_message_b64="$$(printf '%s\n' "${CI_COMMIT_MESSAGE}" | head -n 1 | tr '\t' ' ' | tr -s ' ' | sed 's/^ //; s/ $//' | base64 | tr -d '\n')"
+        if [ -n "$$start_epoch" ]; then
+          duration_seconds=$$((finish_epoch - start_epoch))
+        else
+          duration_seconds=null
+        fi
+
+        curl -sS -X POST \
+          "$${N8N_WEBHOOK_URL}" \
+          -H "$${N8N_WEBHOOK_NAME}: $${N8N_WEBHOOK_TOKEN}" \
+          -H "Content-Type: application/json" \
+          --data @- <<EOF
+        {
+          "event": "deploy",
+          "phase": "finish",
+          "status": "success",
+          "source": "woodpecker",
+          "repo": "${CI_REPO}",
+          "branch": "${CI_COMMIT_BRANCH}",
+          "pipeline_number": "${CI_PIPELINE_NUMBER}",
+          "commit_message_b64": "$$commit_message_b64",
+          "commit_sha": "${CI_COMMIT_SHA}",
+          "target": "meo",
+          "site": "meo-gpt-connector",
+          "finished_at_utc": "$$finish_utc",
+          "finished_at_unix": $$finish_epoch,
+          "duration_seconds": $$duration_seconds,
+          "sent_at_utc": "$$finish_utc"
+        }
+        EOF
+      - rm -f .woodpecker-deploy-start-epoch
+
+  notify_failure:
+    image: curlimages/curl:8.16.0
+    when:
+      - status: failure
+    environment:
+      N8N_WEBHOOK_URL:
+        from_secret: N8N_WEBHOOK_URL
+      N8N_WEBHOOK_NAME:
+        from_secret: N8N_WEBHOOK_NAME
+      N8N_WEBHOOK_TOKEN:
+        from_secret: N8N_WEBHOOK_TOKEN
+    commands:
+      - test -n "$${N8N_WEBHOOK_URL}"
+      - test -n "$${N8N_WEBHOOK_NAME}"
+      - test -n "$${N8N_WEBHOOK_TOKEN}"
+      - |
+        finish_epoch="$$(date -u +%s)"
+        finish_utc="$$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        start_epoch="$$(cat .woodpecker-deploy-start-epoch 2>/dev/null || true)"
+        commit_message_b64="$$(printf '%s\n' "${CI_COMMIT_MESSAGE}" | head -n 1 | tr '\t' ' ' | tr -s ' ' | sed 's/^ //; s/ $//' | base64 | tr -d '\n')"
+        if [ -n "$$start_epoch" ]; then
+          duration_seconds=$$((finish_epoch - start_epoch))
+        else
+          duration_seconds=null
+        fi
+
+        curl -sS -X POST \
+          "$${N8N_WEBHOOK_URL}" \
+          -H "$${N8N_WEBHOOK_NAME}: $${N8N_WEBHOOK_TOKEN}" \
+          -H "Content-Type: application/json" \
+          --data @- <<EOF
+        {
+          "event": "deploy",
+          "phase": "finish",
+          "status": "failure",
+          "source": "woodpecker",
+          "repo": "${CI_REPO}",
+          "branch": "${CI_COMMIT_BRANCH}",
+          "pipeline_number": "${CI_PIPELINE_NUMBER}",
+          "commit_message_b64": "$$commit_message_b64",
+          "commit_sha": "${CI_COMMIT_SHA}",
+          "target": "meo",
+          "site": "meo-gpt-connector",
+          "finished_at_utc": "$$finish_utc",
+          "finished_at_unix": $$finish_epoch,
+          "duration_seconds": $$duration_seconds,
+          "sent_at_utc": "$$finish_utc"
+        }
+        EOF
+      - rm -f .woodpecker-deploy-start-epoch
