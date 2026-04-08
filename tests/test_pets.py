@@ -60,6 +60,48 @@ def test_find_pets_returns_multiple_candidates(client):
 
 
 @respx.mock
+def test_list_pets_ignores_additive_health_summary_fields(client):
+    respx.get("http://test-main-app/api/my-pets").mock(
+        return_value=httpx.Response(
+            200,
+            json=[
+                {
+                    "id": 1,
+                    "name": "Mimi",
+                    "pet_type_id": 2,
+                    "sex": "female",
+                    "photo_url": "https://example.test/mimi.jpg",
+                    "birthday_precision": "month",
+                    "birthday_year": 2025,
+                    "birthday_month": 1,
+                    "health_summary": {
+                        "latest_weight_kg": 4.8,
+                        "latest_weight_record_date": "2026-04-01",
+                        "previous_weight_kg": 4.5,
+                        "previous_weight_record_date": "2026-03-01",
+                        "vaccination_status": "due_soon",
+                    },
+                }
+            ],
+        )
+    )
+
+    resp = client.get("/pets", headers=_auth_headers())
+
+    assert resp.status_code == 200
+    assert resp.json() == [
+        {
+            "id": 1,
+            "name": "Mimi",
+            "species": None,
+            "sex": "female",
+            "age": None,
+            "photo_url": "https://example.test/mimi.jpg",
+        }
+    ]
+
+
+@respx.mock
 def test_pets_overview_filters_and_sorts_by_next_vaccination_due_at(client):
     respx.get("http://test-main-app/api/pet-types").mock(
         return_value=httpx.Response(200, json=[{"id": 1, "name": "dog"}, {"id": 2, "name": "cat"}])
