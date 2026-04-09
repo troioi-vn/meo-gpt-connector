@@ -105,7 +105,8 @@ async def _load_pets(current_token: tuple[int, str], settings: Settings) -> list
         sanctum_token=sanctum_token,
     )
     species_by_type_id = get_species_name_by_pet_type_id()
-    return [to_pet_summary(item, species_by_type_id) for item in _extract_list(raw)]
+    today = date.today()
+    return [to_pet_summary(item, species_by_type_id, today=today) for item in _extract_list(raw)]
 
 
 async def _load_pet_next_vaccination_due(

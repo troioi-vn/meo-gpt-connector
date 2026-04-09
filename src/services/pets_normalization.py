@@ -155,7 +155,12 @@ def normalize_birth_fields(
     return {}
 
 
-def to_pet_summary(raw: dict[str, Any], species_by_type_id: dict[int, str]) -> dict[str, Any]:
+def to_pet_summary(
+    raw: dict[str, Any],
+    species_by_type_id: dict[int, str],
+    *,
+    today: date | None = None,
+) -> dict[str, Any]:
     pet_type_id = raw.get("pet_type_id")
     species = None
     try:
@@ -170,7 +175,7 @@ def to_pet_summary(raw: dict[str, Any], species_by_type_id: dict[int, str]) -> d
         "species": species,
         "sex": raw.get("sex"),
         "photo_url": raw.get("photo_url"),
-        **build_pet_time_context(raw),
+        **build_pet_time_context(raw, today=today),
     }
 
 
