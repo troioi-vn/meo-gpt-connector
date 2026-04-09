@@ -49,8 +49,8 @@ Checklist:
 ### 1. Choose next version
 
 ```bash
-NEW=v0.2.4
-OLD=v0.2.3
+NEW=v0.2.5
+OLD=v0.2.4
 ```
 
 ### 2. Review release delta

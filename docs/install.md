@@ -129,7 +129,7 @@ Expected response:
 ```json
 {
   "status": "ok",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "main_app_reachable": true
 }
 ```
