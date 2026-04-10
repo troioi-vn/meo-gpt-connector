@@ -225,6 +225,35 @@ def test_callback_exchange_failure_returns_502(client):
     assert resp.status_code == 502
 
 
+@respx.mock
+def test_callback_preserves_upstream_503_for_main_app_misconfiguration(client):
+    session_data = json.dumps({
+        "state": "s",
+        "redirect_uri": "https://chatgpt.com/aip/oauth/callback",
+    })
+    respx.post("http://test-main-app/api/gpt-auth/exchange").mock(
+        return_value=httpx.Response(
+            503,
+            json={"message": "GPT connector is not configured."},
+        )
+    )
+    store, fns = _make_stateful_redis()
+    store["oauth:session:sess-upstream-503"] = session_data
+
+    with (
+        patch("src.core.redis.get", side_effect=fns["get"]),
+        patch("src.core.redis.delete", side_effect=fns["delete"]),
+        patch("src.core.redis.set_with_ttl", side_effect=fns["set_with_ttl"]),
+    ):
+        resp = client.get(
+            "/oauth/callback",
+            params={"session_id": "sess-upstream-503", "code": "bad"},
+        )
+
+    assert resp.status_code == 503
+    assert resp.json()["detail"] == "GPT connector is not configured."
+
+
 # ---------------------------------------------------------------------------
 # /oauth/token
 # ---------------------------------------------------------------------------

@@ -81,8 +81,11 @@ async def callback(
     try:
         data = await exchange_code(code, settings)
     except MainAppError as exc:
-        if exc.status_code in (401, 404, 422):
-            raise HTTPException(status_code=502, detail="Main app exchange failed") from exc
+        if exc.status_code == 503:
+            raise HTTPException(
+                status_code=503,
+                detail=exc.payload.get("message", "Main app exchange unavailable"),
+            ) from exc
         raise HTTPException(status_code=502, detail="Main app exchange failed") from exc
 
     await redis_store.delete(f"oauth:session:{session_id}")

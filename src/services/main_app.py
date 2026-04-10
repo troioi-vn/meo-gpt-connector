@@ -117,6 +117,13 @@ def _normalize_http_error(status_code: int, upstream_data: Any) -> tuple[int, di
         }
     if status_code == 429:
         return 429, _rate_limit_error_payload(upstream_data, request_id)
+    if status_code == 503:
+        return 503, {
+            "error": "UPSTREAM_UNAVAILABLE",
+            "message": _message_from_upstream(upstream_data, "Main app is temporarily unavailable."),
+            "fields": [],
+            "request_id": request_id,
+        }
     if status_code >= 500:
         return 502, {
             "error": "UPSTREAM_ERROR",

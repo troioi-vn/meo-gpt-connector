@@ -370,6 +370,14 @@ The connector is trying to access the exchange response without unwrapping the m
 `{"success": true, "data": {...}}` envelope. This is fixed in `src/services/main_app.py` —
 check that you are running the latest code.
 
+### OAuth callback returns `503 GPT connector is not configured.`
+
+This usually means the main app is missing `GPT_CONNECTOR_API_KEY` or equivalent runtime config
+for its server-to-server GPT bridge middleware.
+
+Fix the configuration on the main app backend, restart it, and retry the OAuth flow. The connector
+now preserves this upstream `503` intentionally so misconfiguration is easier to diagnose.
+
 ### `422 country field is required` on `POST /pets`
 
 The `country` field (2-letter ISO code) is required by the main app but wasn't included in the
