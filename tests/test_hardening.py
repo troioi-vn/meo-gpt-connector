@@ -3,11 +3,9 @@
 from unittest.mock import AsyncMock, patch
 
 import httpx
-import pytest
 import respx
 
 from src.core.jwt import create_jwt
-from tests.conftest import TEST_SETTINGS
 
 
 def _auth_headers(user_id: int = 7) -> dict[str, str]:

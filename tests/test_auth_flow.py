@@ -9,11 +9,9 @@ from unittest.mock import AsyncMock, patch
 from urllib.parse import parse_qs, urlparse
 
 import httpx
-import pytest
 import respx
 
 from src.core.jwt import validate_jwt
-
 
 # ---------------------------------------------------------------------------
 # Helpers

@@ -1,6 +1,6 @@
-from contextlib import asynccontextmanager
 import os
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 

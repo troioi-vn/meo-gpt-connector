@@ -1,7 +1,8 @@
 import logging
 import time
 import uuid
-from typing import Any, Awaitable, Callable, cast
+from collections.abc import Awaitable, Callable
+from typing import cast
 
 import structlog
 from fastapi import Request, Response

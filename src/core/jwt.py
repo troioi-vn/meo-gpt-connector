@@ -1,6 +1,6 @@
 import uuid as _uuid
 from datetime import UTC, datetime, timedelta
-from typing import Any, cast
+from typing import cast
 
 from jose import JWTError, jwt
 

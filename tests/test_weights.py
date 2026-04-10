@@ -102,7 +102,7 @@ def test_create_weight_invalid_too_large(client):
 
 @respx.mock
 def test_create_weight_valid_boundary_values(client):
-    route = respx.post("http://test-main-app/api/pets/1/weights").mock(
+    respx.post("http://test-main-app/api/pets/1/weights").mock(
         return_value=httpx.Response(201, json={"id": 23})
     )
 

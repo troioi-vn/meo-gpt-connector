@@ -56,8 +56,7 @@ async def test_get_and_delete_uses_getdel_not_get_then_del(mock_redis):
 
 async def test_get_redis_initialization():
     import src.core.redis as redis_module
-    from unittest.mock import patch
-    
+
     redis_module._client = None
     with patch("src.core.redis.aioredis.from_url") as mock_from_url:
         mock_from_url.return_value = AsyncMock()

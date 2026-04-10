@@ -1,6 +1,7 @@
+from unittest.mock import patch
+
 import httpx
 import respx
-from unittest.mock import patch
 
 from src.core.jwt import create_jwt
 

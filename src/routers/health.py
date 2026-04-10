@@ -1,6 +1,6 @@
 import tomllib
 from importlib.metadata import PackageNotFoundError, version
-from typing import Any, cast
+from typing import cast
 
 import httpx
 from fastapi import APIRouter, Depends

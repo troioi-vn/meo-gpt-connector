@@ -1,6 +1,5 @@
 from src.services.pets_normalization import filter_pet_candidates, has_exact_duplicate
 
-
 PETS = [
     {"id": 1, "name": "Mimi", "species": "cat"},
     {"id": 2, "name": "Milo", "species": "dog"},

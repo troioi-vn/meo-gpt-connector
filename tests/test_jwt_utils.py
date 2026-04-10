@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
 
 import pytest
@@ -30,7 +30,7 @@ def test_happy_path():
 def test_expired_token_raises():
     from src.core.jwt import validate_jwt
 
-    past = int((datetime.now(timezone.utc) - timedelta(seconds=10)).timestamp())
+    past = int((datetime.now(UTC) - timedelta(seconds=10)).timestamp())
     expired = jose_jwt.encode(
         {"sub": "1", "tok": "irrelevant", "exp": past},
         TEST_SETTINGS.JWT_SECRET,
@@ -53,8 +53,10 @@ def test_invalid_signature_raises():
 
 def test_tampered_payload_raises():
     """Modifying the payload invalidates the HMAC signature."""
+    import base64
+    import json
+
     from src.core.jwt import create_jwt, validate_jwt
-    import base64, json
 
     token = create_jwt(1, "sanctum|x")
     header, payload_b64, sig = token.split(".")

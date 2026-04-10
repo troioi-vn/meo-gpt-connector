@@ -1,6 +1,5 @@
-import respx
 import httpx
-import pytest
+import respx
 
 
 @respx.mock
