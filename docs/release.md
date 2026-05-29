@@ -140,7 +140,7 @@ git log --oneline --decorate -n 5 --graph
 ### Running connector
 
 ```bash
-curl -f https://gpt-connector.meo-mai-moi.com/health
+curl -f <production-connector-url>/health
 ```
 
 Expect the deployed version to match `${NEW#v}`.
@@ -150,7 +150,7 @@ Expect the deployed version to match `${NEW#v}`.
 If the release changes tool schema, descriptions, or auth behavior:
 
 ```bash
-curl -fsSL https://gpt-connector.meo-mai-moi.com/openapi.json | head
+curl -fsSL <production-connector-url>/openapi.json | head
 ```
 
 Checklist:

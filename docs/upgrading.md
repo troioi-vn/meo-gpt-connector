@@ -248,7 +248,7 @@ If the upgrade taught us project-specific lessons, add them to this document so 
 
 This repo uses `dev` as the normal source branch and `main` as the production release target. See `docs/release.md` before releasing.
 
-Woodpecker can deploy `dev` and `main` through SSH. Treat pushes to those branches as potentially live deploy triggers and verify pipeline outcome plus `/health` afterward.
+Woodpecker can deploy branches through SSH when configured by the operator. Treat pushes to deployment branches as potentially live deploy triggers and verify pipeline outcome plus `/health` afterward.
 
 ## What Not To Assume
 

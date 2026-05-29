@@ -1,89 +1,50 @@
 # Deployment Guide
 
-This guide covers deploying the connector on a Linux server with nginx, Docker, and Let's Encrypt SSL.
+This guide describes the reusable deployment shape for `meo-gpt-connector`.
+Environment-specific hostnames, SSH targets, server paths, DNS records, and live
+operations should live outside this public repository.
+
 For local development setup, see [install.md](install.md).
 
-The current production model uses two long-lived checkouts on the `meo` server:
+## Architecture
 
-| Branch | Server path | Public URL | Purpose |
-|---|---|---|---|
-| `main` | `/srv/gpt-connector` | `https://gpt-connector.meo-mai-moi.com` | production |
-| `dev` | `/srv/gpt-connector-test` | `https://gpt-connector-test.meo-mai-moi.com` | staging / test |
-
-Those checkouts are now intended to be updated by Woodpecker:
-
-- `push` to `main` deploys `/srv/gpt-connector`
-- `push` to `dev` deploys `/srv/gpt-connector-test`
-- server-managed files such as `.env`, nginx config, and TLS certificates stay in place and are not overwritten by CI
-
----
-
-## Architecture overview
-
-```
-Internet → nginx (443 SSL) → Docker container (connector:8001) → Redis (6379)
-                                        ↓
-                           Main app (Meo Mai Moi) API
+```text
+Internet -> reverse proxy -> connector container -> Redis
+                                      |
+                                      v
+                              main app API
 ```
 
-Two independent deployments on the same server share one nginx and one Docker daemon:
+The repository ships a Docker Compose setup with:
 
-| Instance | nginx subdomain                    | Connector port | Redis port |
-|----------|------------------------------------|---------------|------------|
-| prod     | gpt-connector.meo-mai-moi.com      | 8001          | 6379       |
-| test     | gpt-connector-test.meo-mai-moi.com | 8002          | 6380       |
-
----
+- the FastAPI connector
+- a Redis sidecar for short-lived OAuth state
+- configurable host ports through environment variables
 
 ## Prerequisites
 
-- Ubuntu/Debian server with:
-  - `docker` + `docker compose` plugin
-  - `nginx`
-  - `certbot` with the nginx plugin (`python3-certbot-nginx`)
-  - SSH access as a user with `sudo`
-- DNS A records for both subdomains pointing to the server's public IP (must be live before certbot)
-- The main app (Meo Mai Moi) running and reachable at its URL
+- Docker and Docker Compose
+- a reverse proxy such as nginx, Caddy, Traefik, or a managed ingress
+- DNS and TLS configured for the public connector URL
+- a reachable Meo Mai Moi-compatible main app API
+- generated per-environment secrets
 
----
+## Server Checkout
 
-## 1. Prepare the server checkouts
+Clone the repo wherever your deployment automation expects it:
 
 ```bash
-# Production instance
-sudo git clone <repo-url> /srv/gpt-connector
-sudo chown -R $USER:$USER /srv/gpt-connector
-
-# Test/staging instance (separate clone, independently configurable)
-sudo git clone <repo-url> /srv/gpt-connector-test
-sudo chown -R $USER:$USER /srv/gpt-connector-test
+git clone <repo-url> <deploy-path>
+cd <deploy-path>
+cp .env.example .env
 ```
 
----
+If you run multiple instances on the same server, use separate checkouts and
+override `CONNECTOR_PORT` and `REDIS_PORT` in each `.env`.
 
-## 2. Customize ports (test instance only)
+## Generate Secrets
 
-The default `docker-compose.yml` binds the connector to port `8001` and Redis to `6379`.
-The test instance must use different ports to avoid conflicts. Edit directly:
-
-```bash
-# In /srv/gpt-connector-test/.env
-printf '\nCONNECTOR_PORT=8002\nREDIS_PORT=6380\n' >> .env
-```
-
-Verify:
-```bash
-grep -E '^(CONNECTOR_PORT|REDIS_PORT)=' .env
-# Expected:
-# CONNECTOR_PORT=8002
-# REDIS_PORT=6380
-```
-
----
-
-## 3. Generate secrets
-
-Run this once per deployment environment. All values must be unique per environment.
+Run this once per deployment environment. Values must be unique per environment.
 
 ```bash
 python3 -c "
@@ -96,325 +57,152 @@ print('CONNECTOR_API_KEY:   ', secrets.token_urlsafe(32))
 "
 ```
 
-Save the output — you will need these values in both the connector `.env` and the main app `.env`.
+Store the output in a secret manager or an uncommitted environment file.
 
----
+## Connector Configuration
 
-## 4. Configure the connector .env
+Important `.env` values:
 
-```bash
-cp /srv/gpt-connector-test/.env.example /srv/gpt-connector-test/.env
-nano /srv/gpt-connector-test/.env
-```
-
-| Variable | Value |
+| Variable | Purpose |
 |---|---|
-| `MAIN_APP_URL` | URL of the Meo Mai Moi instance this connector targets (e.g. `https://dev.meo-mai-moi.com` for test, `https://meo-mai-moi.com` for prod) |
-| `CONNECTOR_API_KEY` | Generated above — must match `GPT_CONNECTOR_API_KEY` in the main app |
-| `OAUTH_CLIENT_ID` | `meo-gpt` (fixed — must match what's configured in the ChatGPT Custom GPT) |
-| `OAUTH_CLIENT_SECRET` | Generated above — must match what's entered in the ChatGPT Custom GPT OAuth settings |
-| `JWT_SECRET` | Generated above — signs JWTs issued to ChatGPT |
-| `ENCRYPTION_KEY` | Generated above — 64 hex chars (32 bytes). Encrypts the Sanctum token inside the JWT |
-| `HMAC_SHARED_SECRET` | Generated above — must match `GPT_CONNECTOR_HMAC_SECRET` in the main app |
-| `REDIS_URL` | Leave unset — docker-compose injects `redis://redis:6379` automatically |
-| `LOG_LEVEL` | `info` (use `debug` temporarily when troubleshooting) |
-| `ENVIRONMENT` | `production` |
-| `ADMIN_ENABLED` | `true` to enable the `/admin` dashboard; `false` to disable |
-| `ADMIN_PASSWORD` | Password for the admin dashboard (username is always `admin`) |
-| `RATE_LIMIT_PER_MINUTE` | `60` (requests per user per minute) |
+| `MAIN_APP_URL` | Public or private URL of the main app instance |
+| `CONNECTOR_API_KEY` | Shared secret expected by the main app |
+| `OAUTH_CLIENT_ID` | OAuth client id configured in the GPT/action client |
+| `OAUTH_CLIENT_SECRET` | OAuth client secret configured in the GPT/action client |
+| `JWT_SECRET` | Signs JWTs issued to the GPT/action client |
+| `ENCRYPTION_KEY` | 64 hex chars; encrypts the upstream Sanctum token inside JWTs |
+| `HMAC_SHARED_SECRET` | Shared HMAC secret expected by the main app |
+| `LOG_LEVEL` | `info` for normal deployments, `debug` for troubleshooting |
+| `ENVIRONMENT` | Deployment environment label |
+| `ADMIN_ENABLED` | Enables the `/admin` dashboard when set to `true` |
+| `ADMIN_PASSWORD` | Password for the admin dashboard |
+| `RATE_LIMIT_PER_MINUTE` | Per-user connector rate limit |
+| `CONNECTOR_PORT` | Host port for the connector HTTP service |
+| `REDIS_PORT` | Host port for Redis, if published |
 
-Example `.env` for the test instance:
+## Main App Configuration
 
-```dotenv
-MAIN_APP_URL=https://dev.meo-mai-moi.com
-CONNECTOR_API_KEY=LvsIhmJRWk7Mj8G6Qdg4g-KhIGBWOQGuqeG7lgEA2Oo
-OAUTH_CLIENT_ID=meo-gpt
-OAUTH_CLIENT_SECRET=FznCNM3c-M9snRGL9xASCraN5TEktlaJYk00HxZZTRk
-JWT_SECRET=Ap4wEjSC06vSYCIspYZDpXF6HBh0Nl_GsqDKWY6ajp1vSi4DPjdggBtyTWqhPVod
-ENCRYPTION_KEY=562d0d7136156f84000fe1c8701ff5950c9c57a8862d6808613b65aa75a1994c
-HMAC_SHARED_SECRET=We4ahu6E9hCZBPVodK5N7kPDVq4Uv21-deUNHVz7hi4
-LOG_LEVEL=info
-ENVIRONMENT=production
-ADMIN_ENABLED=true
-ADMIN_PASSWORD=<your-admin-password>
-RATE_LIMIT_PER_MINUTE=60
-```
-
----
-
-## 5. Configure the main app
-
-The main app needs three environment variables added to its `backend/.env`:
+The main app needs matching connector integration values:
 
 ```dotenv
-# GPT Connector integration
-GPT_CONNECTOR_API_KEY=<same value as CONNECTOR_API_KEY in connector .env>
-GPT_CONNECTOR_HMAC_SECRET=<same value as HMAC_SHARED_SECRET in connector .env>
-GPT_CONNECTOR_URL=https://gpt-connector-test.meo-mai-moi.com   # or prod subdomain
+GPT_CONNECTOR_API_KEY=<same value as CONNECTOR_API_KEY>
+GPT_CONNECTOR_HMAC_SECRET=<same value as HMAC_SHARED_SECRET>
+GPT_CONNECTOR_URL=<public HTTPS URL of this connector instance>
 ```
 
-> `GPT_CONNECTOR_URL` is the public HTTPS URL of **this connector instance**. The main app uses it
-> to construct the redirect URL returned from `POST /api/gpt-auth/confirm`.
+Restart the main app after changing its runtime configuration.
 
-After editing, restart the main app backend container:
+## Reverse Proxy
 
-```bash
-cd ~/meo-mai-moi   # or /srv/meo-mai-moi
-docker compose restart backend
-```
+Terminate TLS at your reverse proxy and forward traffic to the connector host
+port. A minimal nginx location looks like this:
 
----
-
-## 6. Configure nginx
-
-Create a config file per subdomain in `/etc/nginx/conf.d/`. Replace the port number to match
-the instance (8001 for prod, 8002 for test).
-
-```bash
-sudo tee /etc/nginx/conf.d/gpt-connector-test.meo-mai-moi.com.conf > /dev/null << 'EOF'
-server {
-    server_name gpt-connector-test.meo-mai-moi.com;
-
-    access_log /var/log/nginx/gpt-connector-test.meo-mai-moi.com_access.log;
-    error_log  /var/log/nginx/gpt-connector-test.meo-mai-moi.com_error.log error;
-
-    location / {
-        proxy_pass http://127.0.0.1:8002;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-
-        proxy_connect_timeout 15s;
-        proxy_send_timeout 120s;
-        proxy_read_timeout 120s;
-    }
-
-    listen 80;
+```nginx
+location / {
+    proxy_pass http://127.0.0.1:<connector-port>;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
 }
-EOF
 ```
 
-Test and reload:
+Always validate the reverse proxy configuration before reloading it.
+
+## Start
 
 ```bash
-sudo nginx -t && sudo nginx -s reload
-```
-
----
-
-## 7. Obtain SSL certificates
-
-Use certbot's nginx plugin — it obtains the certificate and updates the nginx configs automatically.
-Both subdomains can share a single certificate:
-
-```bash
-sudo certbot --nginx \
-  -d gpt-connector.meo-mai-moi.com \
-  -d gpt-connector-test.meo-mai-moi.com \
-  --non-interactive --agree-tos \
-  -m admin@catarchy.space
-```
-
-Certbot will add `listen 443 ssl` blocks and an HTTP→HTTPS redirect to each config file.
-Verify auto-renewal is configured:
-
-```bash
-sudo systemctl status certbot.timer
-# or
-sudo certbot renew --dry-run
-```
-
----
-
-## 8. Start the connector
-
-```bash
-cd /srv/gpt-connector-test
 docker compose up -d --build
+docker compose ps
 ```
 
-Check containers are healthy:
+Health check:
 
 ```bash
-docker ps --format 'table {{.Names}}\t{{.Ports}}\t{{.Status}}' | grep gpt
+curl -fsS <connector-base-url>/health
 ```
 
-Expected output:
-```
-gpt-connector-test-connector-1   0.0.0.0:8002->8000/tcp   Up X minutes (healthy)
-gpt-connector-test-redis-1       0.0.0.0:6380->6379/tcp   Up X minutes (healthy)
-```
+`main_app_reachable: false` means the connector cannot reach `MAIN_APP_URL`.
 
----
+## CI/CD
 
-## Woodpecker setup
+The repository includes a Woodpecker pipeline and `utils/deploy-ci.sh` as an
+example of SSH-based deployment automation. Configure hostnames, SSH users,
+deployment paths, and keys as CI secrets outside the repository.
 
-Repo-side CI configuration lives in [`.woodpecker.yml`](../.woodpecker.yml). The deploy helper it calls on the target host is [`utils/deploy-ci.sh`](../utils/deploy-ci.sh).
+The expected flow is:
 
-Required Woodpecker secrets for this repo:
+1. CI checks out the pushed commit.
+2. CI connects to the target host.
+3. The target checkout is moved to the exact commit.
+4. `docker compose up -d --build` recreates the connector instance.
+5. CI checks the instance-local `/health` endpoint.
 
-| Secret | Value |
-|---|---|
-| `MEO_HOST` | `10.23.0.2` |
-| `MEO_USER` | `ubuntu` |
-| `MEO_SSH_KEY` | private deploy key authorized on `meo` |
-| `PROD_DEPLOY_PATH` | `/srv/gpt-connector` |
-| `DEV_DEPLOY_PATH` | `/srv/gpt-connector-test` |
+Treat pushes to deployment branches as possible live deploy triggers in any
+environment that has CI/CD wired up.
 
-Deploy flow:
+## OAuth and Tool Flow Verification
 
-1. Woodpecker clones the repo for the pushed commit.
-2. The matching branch step SSHes to `meo`.
-3. The long-lived checkout on `meo` is reset to `CI_COMMIT_SHA`.
-4. `docker compose up -d --build` rebuilds just that instance.
-5. CI waits for the instance-local `http://127.0.0.1:<port>/health` endpoint to return success.
-
----
-
-## 9. Verify the deployment
-
-**Health check:**
-```bash
-curl -s https://gpt-connector-test.meo-mai-moi.com/health | python3 -m json.tool
-```
-
-Expected:
-```json
-{
-  "status": "ok",
-  "version": "0.2.5",
-  "main_app_reachable": true
-}
-```
-
-`main_app_reachable: false` means the connector cannot reach `MAIN_APP_URL` — check the URL
-and that the main app is running.
-
-When validating the signup path in production or staging, remember that a newly created GPT user may still need to verify their email before PAT-gated pet routes such as `GET /pets` or `POST /pets` can succeed. That is an upstream account-policy state, not necessarily a connector failure.
-
-**Full OAuth + tools simulation:**
-
-First, get a Sanctum token from the main app:
+Use the scripts in `scripts/` to verify a live connector against a compatible
+main app:
 
 ```bash
-ssh catarchy   # or ssh meo for the prod main app
-cd ~/meo-mai-moi
-docker compose exec -T backend php artisan tinker --no-interaction <<'EOF'
-$user = \App\Models\User::where('email', 'admin@catarchy.space')->first();
-echo $user->id . ' ' . $user->createToken('gpt-sim')->plainTextToken;
-EOF
-```
-
-Note the user ID and the full token string. Then from the connector project root on your local machine:
-
-```bash
-# Step 1: Full OAuth flow
 python scripts/simulate_oauth_flow.py \
   --sanctum-token "<token>" \
-  --connector-base "https://gpt-connector-test.meo-mai-moi.com" \
-  --main-app-base "https://dev.meo-mai-moi.com" \
-  --client-id "meo-gpt" \
-  --client-secret "<OAUTH_CLIENT_SECRET from .env>" \
-  --redirect-uri "https://gpt-connector-test.meo-mai-moi.com/oauth/callback" \
+  --connector-base "<connector-base-url>" \
+  --main-app-base "<main-app-base-url>" \
+  --client-id "<oauth-client-id>" \
+  --client-secret "<oauth-client-secret>" \
+  --redirect-uri "<connector-base-url>/oauth/callback" \
   --verify-tools
 
-# Step 2: GPT tool flow (create/find/update pet + health records)
-JWT_SECRET="<JWT_SECRET from .env>" \
-ENCRYPTION_KEY="<ENCRYPTION_KEY from .env>" \
+JWT_SECRET="<jwt-secret>" \
+ENCRYPTION_KEY="<encryption-key>" \
 python scripts/simulate_gpt_tool_flow.py \
   --sanctum-token "<token>" \
-  --user-id <user_id> \
-  --connector-base "https://gpt-connector-test.meo-mai-moi.com" \
-  --main-app-base "https://dev.meo-mai-moi.com"
+  --user-id <user-id> \
+  --connector-base "<connector-base-url>" \
+  --main-app-base "<main-app-base-url>"
 ```
 
-All steps in both scripts should return 2xx status codes.
-
-For Custom GPT behavior, keep the onboarding wording aligned with the current account flow:
-- if the user already has a Meo Mai Moi account, the GPT should tell them to use Connect Account and sign in on the Meo Mai Moi page
-- if the user needs a new account, the GPT should ask which email they want to use before sending them into Connect Account
-- the GPT should not ask for passwords in chat
-- if email verification is enabled upstream, the GPT should warn that protected pet tools may require email verification before they work
-
----
-
-## 10. Upgrading
-
-```bash
-cd /srv/gpt-connetcor-test
-git pull
-docker compose up -d --build
-```
-
-The build is fast (dependencies are cached in the Docker layer). Redis data and container state
-are preserved across rebuilds since `--build` only recreates the connector container.
-
----
+When validating signup behavior, remember that a newly created user may need to
+verify their email before PAT-gated pet routes can succeed. That is an upstream
+account-policy state, not necessarily a connector failure.
 
 ## Troubleshooting
 
 ### `Invalid session signature` on `/api/gpt-auth/confirm`
 
-`HMAC_SHARED_SECRET` (connector) and `GPT_CONNECTOR_HMAC_SECRET` (main app) do not match.
-Copy the value from the connector `.env` to the main app `.env` and restart the main app backend.
+`HMAC_SHARED_SECRET` in the connector and `GPT_CONNECTOR_HMAC_SECRET` in the
+main app do not match.
 
 ### `Name or service not known` on callback step
 
-The main app's `GPT_CONNECTOR_URL` is wrong or unset (defaults to an old placeholder value).
-Set it to the connector's public HTTPS URL and restart the main app backend.
-
-### `KeyError: 'sanctum_token'` in connector logs
-
-The connector is trying to access the exchange response without unwrapping the main app's
-`{"success": true, "data": {...}}` envelope. This is fixed in `src/services/main_app.py` —
-check that you are running the latest code.
+The main app's `GPT_CONNECTOR_URL` is wrong or unset. Set it to the connector's
+public HTTPS URL and restart the main app.
 
 ### OAuth callback returns `503 GPT connector is not configured.`
 
-This usually means the main app is missing `GPT_CONNECTOR_API_KEY` or equivalent runtime config
-for its server-to-server GPT bridge middleware.
-
-Fix the configuration on the main app backend, restart it, and retry the OAuth flow. The connector
-now preserves this upstream `503` intentionally so misconfiguration is easier to diagnose.
-
-### `422 country field is required` on `POST /pets`
-
-The `country` field (2-letter ISO code) is required by the main app but wasn't included in the
-GPT request. The GPT should ask the user for their country if not clear from context. This was
-a known gap in earlier versions — `country` is now included in the `CreatePetRequest` schema.
-
-### Upstream `429` now reaches the GPT as `429`
-
-This is expected after the connector update. The connector now preserves upstream rate-limit and quota meaning instead of rewriting `429` into a generic `502`.
-
-If the main app includes safe quota metadata, the connector keeps it in the error payload so support and debugging can distinguish minute throttling from daily quota exhaustion.
+The main app is missing connector bridge runtime configuration. Fix the main app
+environment, restart it, and retry the OAuth flow.
 
 ### Port conflict on startup
 
-Check what is already listening before starting a new instance:
+Check what is already listening and adjust `CONNECTOR_PORT` or `REDIS_PORT`:
+
 ```bash
 ss -tlnp | grep -E ':(8001|8002|6379|6380)'
 ```
 
-The prod connector uses 8001/6379, test uses 8002/6380. Make sure the `docker-compose.yml`
-in the test directory has been patched (step 2 above).
-
 ### Container exits immediately
 
-Check logs:
 ```bash
 docker compose logs connector
 ```
 
-Most common cause: a required `.env` variable is missing or malformed (e.g. `ENCRYPTION_KEY`
-not exactly 64 hex characters).
+The most common cause is a missing or malformed `.env` value.
 
 ### Admin dashboard not loading
 
-Set `ADMIN_ENABLED=true` and `ADMIN_PASSWORD=<something>` in `.env`, then rebuild:
-```bash
-docker compose up -d --build connector
-```
-
-Access at `https://<subdomain>/admin` with username `admin`.
+Set `ADMIN_ENABLED=true` and `ADMIN_PASSWORD=<password>`, then recreate the
+connector container.
