@@ -27,7 +27,7 @@ def _openapi_server_url() -> str:
 app = FastAPI(
     title="Meo GPT Connector",
     description="ChatGPT Custom GPT connector for Meo Mai Moi pet care platform.",
-    version="0.2.7",
+    version="0.2.8",
     servers=[{"url": _openapi_server_url()}],
     lifespan=lifespan,
 )
