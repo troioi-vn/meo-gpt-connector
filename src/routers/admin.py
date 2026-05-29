@@ -114,10 +114,10 @@ async def admin_auth(request: Request) -> HTMLResponse:
 @router.get("/partials/stats", response_class=HTMLResponse, dependencies=[Depends(_require_admin)])
 async def admin_stats(request: Request) -> HTMLResponse:
     total_events, active_sessions = 0, 0
-    signal_events: list[dict] = []
-    tool_events: list[dict] = []
-    auth_events: list[dict] = []
-    recent_errors: list[dict] = []
+    signal_events: list[dict[str, Any]] = []
+    tool_events: list[dict[str, Any]] = []
+    auth_events: list[dict[str, Any]] = []
+    recent_errors: list[dict[str, Any]] = []
     try:
         total_events = await get_total_event_count()
         active_sessions = await get_active_session_count()

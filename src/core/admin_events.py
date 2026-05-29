@@ -46,7 +46,7 @@ async def get_recent(
         scan_size = min(_MAX, max(200, n * 8))
 
     raw = await r.zrevrange(_KEY, 0, scan_size - 1)
-    events = [json.loads(e) for e in raw]
+    events = [json.loads(e) for e in raw if isinstance(e, (str, bytes, bytearray))]
 
     if skip_admin:
         events = [e for e in events if not _is_admin_event(e)]
@@ -70,4 +70,4 @@ async def get_active_session_count() -> int:
 async def get_total_event_count() -> int:
     """Return total number of stored events."""
     r = await get_redis()
-    return await r.zcard(_KEY)  # type: ignore[no-any-return]
+    return int(await r.zcard(_KEY))

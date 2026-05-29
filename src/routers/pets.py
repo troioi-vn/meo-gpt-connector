@@ -275,11 +275,11 @@ async def pets_overview(
     )
 
     by_pet_id: dict[int, tuple[date | None, str | None, str, list[dict[str, Any]]]] = {}
-    for pet, summary in zip(pets_with_ids, vaccination_items, strict=False):
-        by_pet_id[int(pet["id"])] = summary
+    for pet, vacc_summary in zip(pets_with_ids, vaccination_items, strict=False):
+        by_pet_id[int(pet["id"])] = vacc_summary
     weights_by_pet_id: dict[int, tuple[list[dict[str, Any]], str]] = {}
-    for pet, summary in zip(pets_with_ids, weight_items, strict=False):
-        weights_by_pet_id[int(pet["id"])] = summary
+    for pet, weight_summary in zip(pets_with_ids, weight_items, strict=False):
+        weights_by_pet_id[int(pet["id"])] = weight_summary
 
     items: list[dict[str, Any]] = []
     for pet in filtered:
