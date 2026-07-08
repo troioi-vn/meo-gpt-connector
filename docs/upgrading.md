@@ -97,7 +97,7 @@ Then inspect direct dependencies in `pyproject.toml`. Pay particular attention t
 - `pydantic`
 - `pydantic-settings`
 - `httpx`
-- `python-jose[cryptography]`
+- `PyJWT`
 - `cryptography`
 - `redis[hiredis]`
 - `structlog`
@@ -243,6 +243,7 @@ If the upgrade taught us project-specific lessons, add them to this document so 
 - **redis 8.x**: No code changes required here; async client usage stayed the same.
 - **cryptography 48.x**: No code changes required; JWT/crypto tests passed unchanged.
 - **FastAPI 0.136.x**: Pulls **Starlette 1.x** transitively. Watch release notes if middleware or exception handling changes.
+- **PyJWT 2.13.x**: Replaced `python-jose[cryptography]` for HS256 connector JWTs to avoid the transitive `ecdsa` dependency flagged by `pip-audit`. Use `jwt.InvalidTokenError` for decode failures.
 
 ## Deployment Note
 
@@ -259,20 +260,21 @@ Woodpecker can deploy branches through SSH when configured by the operator. Trea
 
 ## Current Versions
 
-Lower bounds in `pyproject.toml` (last verified 2026-05-30):
+Lower bounds in `pyproject.toml` (last verified 2026-07-08):
 
 | Dependency | Constraint | Resolved (local venv) |
 | ---------- | ---------- | --------------------- |
 | Python     | >=3.12     | 3.12                  |
-| FastAPI    | >=0.136.3  | 0.136.3               |
-| Pydantic   | >=2.13     | 2.13.4                |
-| pydantic-settings | >=2.14 | 2.14.1            |
-| uvicorn    | >=0.48.0   | 0.48.0                |
+| FastAPI    | >=0.139.0  | 0.139.0               |
+| Pydantic   | >=2.13.4   | 2.13.4                |
+| pydantic-settings | >=2.14.2 | 2.14.2          |
+| uvicorn    | >=0.51.0   | 0.51.0                |
 | httpx      | >=0.28     | 0.28.1                |
-| cryptography | >=48.0.0 | 48.0.0                |
-| Redis client | >=8.0.0  | 8.0.0                 |
-| pytest     | >=9.0.3    | 9.0.3                 |
-| ruff       | >=0.15.15  | 0.15.15               |
-| mypy       | >=2.1.0    | 2.1.0                 |
+| PyJWT      | >=2.13.0   | 2.13.0                |
+| cryptography | >=49.0.0 | 49.0.0                |
+| Redis client | >=8.0.1  | 8.0.1                 |
+| pytest     | >=9.1.1    | 9.1.1                 |
+| ruff       | >=0.15.20  | 0.15.20               |
+| mypy       | >=2.2.0    | 2.2.0                 |
 
-Starlette is not pinned directly; a clean install currently resolves **1.2.0** via FastAPI.
+Starlette is not pinned directly; a clean install currently resolves **1.3.1** via FastAPI.

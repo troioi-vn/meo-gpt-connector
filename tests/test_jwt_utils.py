@@ -1,8 +1,8 @@
 from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
 
+import jwt
 import pytest
-from jose import jwt as jose_jwt
 
 from tests.conftest import TEST_SETTINGS
 
@@ -31,7 +31,7 @@ def test_expired_token_raises():
     from src.core.jwt import validate_jwt
 
     past = int((datetime.now(UTC) - timedelta(seconds=10)).timestamp())
-    expired = jose_jwt.encode(
+    expired = jwt.encode(
         {"sub": "1", "tok": "irrelevant", "exp": past},
         TEST_SETTINGS.JWT_SECRET,
         algorithm="HS256",
@@ -77,9 +77,9 @@ def test_wrong_algorithm_rejected():
     from src.core.jwt import validate_jwt
 
     # Sign with RS256-like none algorithm tricks — here we just use a different secret
-    forged = jose_jwt.encode(
+    forged = jwt.encode(
         {"sub": "1", "tok": "x", "exp": 9999999999},
-        "wrong-secret",
+        "wrong-secret-that-is-long-enough-for-hs256",
         algorithm="HS256",
     )
     with pytest.raises(ValueError, match="Invalid token"):

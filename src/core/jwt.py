@@ -1,8 +1,8 @@
 import uuid as _uuid
 from datetime import UTC, datetime, timedelta
-from typing import cast
 
-from jose import JWTError, jwt
+import jwt
+from jwt import InvalidTokenError
 
 from src.core.config import get_settings
 from src.core.crypto import decrypt, encrypt
@@ -28,7 +28,7 @@ def create_jwt(user_id: int, sanctum_token: str) -> str:
         "exp": exp,
         "jti": _uuid.uuid4().hex,
     }
-    return cast(str, jwt.encode(payload, settings.JWT_SECRET, algorithm=_ALGORITHM))
+    return jwt.encode(payload, settings.JWT_SECRET, algorithm=_ALGORITHM)
 
 
 def validate_jwt(token: str) -> tuple[int, str]:
@@ -39,7 +39,7 @@ def validate_jwt(token: str) -> tuple[int, str]:
     settings = get_settings()
     try:
         payload = jwt.decode(token, settings.JWT_SECRET, algorithms=[_ALGORITHM])
-    except JWTError as exc:
+    except InvalidTokenError as exc:
         raise ValueError(f"Invalid token: {exc}") from exc
     return int(payload["sub"]), decrypt(payload["tok"])
 
@@ -54,5 +54,5 @@ def get_jwt_meta(token: str) -> tuple[str | None, int]:
     try:
         payload = jwt.decode(token, settings.JWT_SECRET, algorithms=[_ALGORITHM])
         return payload.get("jti"), int(payload.get("exp") or 0)
-    except JWTError:
+    except InvalidTokenError:
         return None, 0

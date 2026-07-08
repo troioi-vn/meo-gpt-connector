@@ -10,7 +10,7 @@ COPY pyproject.toml ./
 RUN uv venv .venv && \
     uv pip install --python .venv/bin/python \
     fastapi "uvicorn[standard]" pydantic "pydantic-settings" httpx \
-    "python-jose[cryptography]" cryptography "redis[hiredis]" structlog \
+    PyJWT cryptography "redis[hiredis]" structlog \
     python-multipart jinja2
 
 # ---- final ----
