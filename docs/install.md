@@ -296,9 +296,10 @@ This script:
 It prints a compact JSON trace of each step with status codes.
 
 For manual GPT onboarding testing, remember the intended conversation flow:
-- if the user already has an account, the GPT should tell them to use Connect Account and sign in on the Meo Mai Moi page
-- if they need a new account, the GPT should ask which email they want to use before sending them into Connect Account
+- if the user already has an account, the GPT should tell them to use the ChatGPT connection flow for Meo Mai Moi and sign in on the Meo Mai Moi page
+- if they need a new account, the GPT should ask which email they want to use before sending them into the ChatGPT connection flow
 - the GPT should not ask for passwords in chat
+- the GPT should not assume a specific button is visible in every ChatGPT client; if connection UI guidance fails, it should try one harmless read tool once to trigger or refresh authorization
 - if email verification is enabled, the GPT should warn that protected pet tools may require email verification before they work
 
 If `confirm` returns `Invalid session signature`, make sure connector `HMAC_SHARED_SECRET`
