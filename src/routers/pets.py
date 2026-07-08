@@ -23,6 +23,7 @@ from src.models.pets import (
 from src.services.main_app import (
     MainAppError,
     call_main_app,
+    extract_list_payload,
     get_pet_types_by_name,
     get_species_name_by_pet_type_id,
     refresh_pet_types_cache,
@@ -52,11 +53,7 @@ def _error_response(status_code: int, error: str, message: str, fields: list[dic
 
 
 def _extract_list(data: Any) -> list[dict[str, Any]]:
-    if isinstance(data, list):
-        return [item for item in data if isinstance(item, dict)]
-    if isinstance(data, dict) and isinstance(data.get("data"), list):
-        return [item for item in data["data"] if isinstance(item, dict)]
-    return []
+    return extract_list_payload(data)
 
 
 def _parse_iso_date(raw: Any) -> date | None:

@@ -13,7 +13,14 @@ def test_list_vaccinations(client):
     respx.get("http://test-main-app/api/pets/1/vaccinations").mock(
         return_value=httpx.Response(
             200,
-            json=[{"id": 10, "vaccine_name": "Rabies", "administered_at": "2024-06-01"}],
+            json={
+                "success": True,
+                "data": {
+                    "data": [{"id": 10, "vaccine_name": "Rabies", "administered_at": "2024-06-01"}],
+                    "links": {},
+                    "meta": {"total": 1},
+                },
+            },
         )
     )
 

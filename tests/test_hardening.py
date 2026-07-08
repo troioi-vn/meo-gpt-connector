@@ -159,7 +159,7 @@ def test_create_pet_duplicate_returns_409(client):
 
     resp = client.post(
         "/pets",
-        json={"name": "Luna", "species": "cat"},
+        json={"name": "Luna", "species": "cat", "country": "VN"},
         headers=_auth_headers(),
     )
     assert resp.status_code == 409
@@ -183,7 +183,7 @@ def test_create_pet_duplicate_override_proceeds(client):
 
     resp = client.post(
         "/pets",
-        json={"name": "Luna", "species": "cat", "confirm_duplicate": True},
+        json={"name": "Luna", "species": "cat", "country": "VN", "confirm_duplicate": True},
         headers=_auth_headers(),
     )
     assert resp.status_code == 201

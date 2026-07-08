@@ -15,7 +15,14 @@ def test_list_medical_records(client):
     respx.get("http://test-main-app/api/pets/1/medical-records").mock(
         return_value=httpx.Response(
             200,
-            json=[{"id": 5, "record_type": "checkup", "record_date": "2024-05-10"}],
+            json={
+                "success": True,
+                "data": {
+                    "data": [{"id": 5, "record_type": "checkup", "record_date": "2024-05-10"}],
+                    "links": {},
+                    "meta": {"total": 1},
+                },
+            },
         )
     )
 

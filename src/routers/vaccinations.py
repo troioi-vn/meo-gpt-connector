@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 from src.core.config import Settings, get_settings
 from src.core.dependencies import get_current_token_limited as get_current_token
 from src.models.health import CreateVaccinationRequest, UpdateVaccinationRequest
-from src.services.main_app import MainAppError, call_main_app
+from src.services.main_app import MainAppError, call_main_app, extract_list_payload
 
 router = APIRouter(tags=["vaccinations"])
 
@@ -25,12 +25,13 @@ async def list_vaccinations(
 ) -> Any:
     _, sanctum_token = current_token
     try:
-        return await call_main_app(
+        data = await call_main_app(
             method="GET",
             path=f"/api/pets/{pet_id}/vaccinations",
             settings=settings,
             sanctum_token=sanctum_token,
         )
+        return extract_list_payload(data)
     except MainAppError as exc:
         return JSONResponse(status_code=exc.status_code, content=exc.payload)
 

@@ -15,14 +15,21 @@ def test_list_weights(client):
     respx.get("http://test-main-app/api/pets/1/weights").mock(
         return_value=httpx.Response(
             200,
-            json=[{"id": 20, "weight_kg": 4.5, "record_date": "2024-06-01"}],
+            json={
+                "success": True,
+                "data": {
+                    "data": [{"id": 20, "weight_kg": "4.50", "record_date": "2024-06-01"}],
+                    "links": {},
+                    "meta": {"total": 1},
+                },
+            },
         )
     )
 
     resp = client.get("/pets/1/weights", headers=_auth_headers())
 
     assert resp.status_code == 200
-    assert resp.json()[0]["weight_kg"] == 4.5
+    assert resp.json() == [{"id": 20, "weight_kg": "4.50", "record_date": "2024-06-01"}]
 
 
 @respx.mock

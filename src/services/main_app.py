@@ -68,6 +68,24 @@ def _extract_retry_after(upstream_data: Any) -> int | str | None:
     return None
 
 
+def extract_list_payload(data: Any) -> list[dict[str, Any]]:
+    """Return list items from plain, wrapped, or Laravel-paginated responses."""
+    if isinstance(data, list):
+        return [item for item in data if isinstance(item, dict)]
+    if not isinstance(data, dict):
+        return []
+
+    wrapped = data.get("data")
+    if isinstance(wrapped, list):
+        return [item for item in wrapped if isinstance(item, dict)]
+    if isinstance(wrapped, dict):
+        paginated = wrapped.get("data")
+        if isinstance(paginated, list):
+            return [item for item in paginated if isinstance(item, dict)]
+
+    return []
+
+
 def _rate_limit_error_payload(upstream_data: Any, request_id: str) -> dict[str, Any]:
     data = _extract_upstream_data(upstream_data)
     upstream_error_code = data.get("error_code")

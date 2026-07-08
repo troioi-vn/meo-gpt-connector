@@ -232,40 +232,50 @@ def test_pets_overview_includes_birthday_context_and_computed_age(client):
     respx.get("http://test-main-app/api/pets/1/vaccinations").mock(
         return_value=httpx.Response(
             200,
-            json=[
-                {
-                    "id": 10,
-                    "vaccine_name": "Rabies",
-                    "administered_at": "2025-04-01",
-                    "due_at": "2026-04-02",
+            json={
+                "success": True,
+                "data": {
+                    "data": [
+                        {
+                            "id": 10,
+                            "vaccine_name": "Rabies",
+                            "administered_at": "2025-04-01",
+                            "due_at": "2026-04-02",
+                        },
+                        {
+                            "id": 11,
+                            "vaccine_name": "FVRCP",
+                            "administered_at": "2025-01-01",
+                            "due_at": "2025-12-31",
+                            "completed_at": "2025-12-31T00:00:00Z",
+                        },
+                        {
+                            "id": 12,
+                            "vaccine_name": "Bordetella",
+                            "administered_at": "2026-01-15",
+                        },
+                    ]
                 },
-                {
-                    "id": 11,
-                    "vaccine_name": "FVRCP",
-                    "administered_at": "2025-01-01",
-                    "due_at": "2025-12-31",
-                    "completed_at": "2025-12-31T00:00:00Z",
-                },
-                {
-                    "id": 12,
-                    "vaccine_name": "Bordetella",
-                    "administered_at": "2026-01-15",
-                },
-            ],
+            },
         )
     )
     respx.get("http://test-main-app/api/pets/2/vaccinations").mock(return_value=httpx.Response(200, json=[]))
     respx.get("http://test-main-app/api/pets/1/weights").mock(
         return_value=httpx.Response(
             200,
-            json=[
-                {"id": 31, "weight_kg": 4.1, "record_date": "2026-03-01"},
-                {"id": 32, "weight_kg": 4.2, "record_date": "2026-03-15"},
-                {"id": 33, "weight_kg": 4.3, "record_date": "2026-02-15"},
-                {"id": 34, "weight_kg": 4.4, "record_date": "2026-03-20"},
-                {"id": 35, "weight_kg": 4.5, "record_date": "2026-01-10"},
-                {"id": 36, "weight_kg": 4.6, "record_date": "2026-03-25"},
-            ],
+            json={
+                "success": True,
+                "data": {
+                    "data": [
+                        {"id": 31, "weight_kg": 4.1, "record_date": "2026-03-01"},
+                        {"id": 32, "weight_kg": 4.2, "record_date": "2026-03-15"},
+                        {"id": 33, "weight_kg": 4.3, "record_date": "2026-02-15"},
+                        {"id": 34, "weight_kg": 4.4, "record_date": "2026-03-20"},
+                        {"id": 35, "weight_kg": 4.5, "record_date": "2026-01-10"},
+                        {"id": 36, "weight_kg": 4.6, "record_date": "2026-03-25"},
+                    ]
+                },
+            },
         )
     )
     respx.get("http://test-main-app/api/pets/2/weights").mock(return_value=httpx.Response(200, json=[]))
@@ -321,7 +331,7 @@ def test_create_pet_duplicate_warning(client):
 
     resp = client.post(
         "/pets",
-        json={"name": "Mimi", "species": "cat", "sex": "unknown", "age_months": 6},
+        json={"name": "Mimi", "species": "cat", "sex": "unknown", "age_months": 6, "country": "VN"},
         headers=_auth_headers(),
     )
 
@@ -345,13 +355,31 @@ def test_create_pet_confirm_duplicate_skips_block(client):
 
     resp = client.post(
         "/pets",
-        json={"name": "Mimi", "species": "cat", "confirm_duplicate": True, "birth_month_year": "2025-01"},
+        json={
+            "name": "Mimi",
+            "species": "cat",
+            "confirm_duplicate": True,
+            "birth_month_year": "2025-01",
+            "country": "VN",
+        },
         headers=_auth_headers(),
     )
 
     assert resp.status_code == 201
     assert resp.json()["id"] == 5
     assert create_route.called
+
+
+@respx.mock
+def test_create_pet_requires_country_before_upstream_calls(client):
+    resp = client.post(
+        "/pets",
+        json={"name": "Mimi", "species": "cat"},
+        headers=_auth_headers(),
+    )
+
+    assert resp.status_code == 422
+    assert "country" in str(resp.json())
 
 
 @respx.mock
